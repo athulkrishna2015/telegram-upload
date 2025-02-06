@@ -43,7 +43,7 @@ To **install 🔧 telegram-upload**, run this command in your terminal:
 
 .. code-block:: console
 
-    $ sudo pip3 install -U telegram-upload
+    $ sudo pip3 install https://github.com/athulkrishna2015/telegram-upload/archive/refs/heads/master.zip
 
 This is the preferred method to install telegram-upload, as it will always install the most recent stable release.
 🐍 **Python 3.7-3.11** are tested and supported. There are other installation ways available like `Docker <#-docker>`_.
