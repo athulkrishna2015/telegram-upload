@@ -142,7 +142,7 @@ class MutuallyExclusiveOption(click.Option):
               help='Use interactive mode.')
 @click.option('--sort', is_flag=True,
               help='Sort files by name before upload it. Install the natsort Python package for natural sorting.')
-@click.option('--topic', default=None, type=int, help='Topic ID to upload the file to.')
+@click.option('--topic', '-t', default=None, type=int, help='Topic ID to upload the file to.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
            no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic):
     """Upload one or more files to Telegram using your personal account.
@@ -205,7 +205,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
               help='Defines how to download large files split in Telegram. By default the files are not merged.')
 @click.option('-i', '--interactive', is_flag=True,
               help='Use interactive mode.')
-@click.option('--topic', default=None, type=int, help='Topic ID to download the files from.')
+@click.option('--topic', '-t', default=None, type=int, help='Topic ID to download the files from.')
 def download(from_, config, delete_on_success, proxy, split_files, interactive, topic):
     """Download all the latest messages that are files in a chat, by default download
     from "saved messages". It is recommended to forward the files to download to
