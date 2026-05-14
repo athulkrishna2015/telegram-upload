@@ -16,12 +16,13 @@ from telegram_upload.exceptions import TelegramUploadDataLoss, MissingFileError
 from telegram_upload.upload_files import File
 from telegram_upload.utils import grouper, async_to_sync, get_environment_integer
 
-PARALLEL_UPLOAD_BLOCKS = get_environment_integer('TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS', 4)
+PARALLEL_UPLOAD_BLOCKS = get_environment_integer('TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS', 8)
 ALBUM_FILES = 10
 RETRIES = 3
 MAX_RECONNECT_RETRIES = get_environment_integer('TELEGRAM_UPLOAD_MAX_RECONNECT_RETRIES', 5)
 RECONNECT_TIMEOUT = get_environment_integer('TELEGRAM_UPLOAD_RECONNECT_TIMEOUT', 5)
 MIN_RECONNECT_WAIT = get_environment_integer('TELEGRAM_UPLOAD_MIN_RECONNECT_WAIT', 2)
+MAX_CONNECTIONS = get_environment_integer('TELEGRAM_UPLOAD_MAX_CONNECTIONS', 1)
 
 
 class TelegramUploadClient(TelegramClient):
@@ -30,7 +31,22 @@ class TelegramUploadClient(TelegramClient):
     def __init__(self, *args, **kwargs):
         self.reconnecting_lock = asyncio.Lock()
         self.upload_semaphore = asyncio.Semaphore(self.parallel_upload_blocks)
+        self._sender_pool = []
         super().__init__(*args, **kwargs)
+
+    async def _get_sender(self):
+        if MAX_CONNECTIONS <= 1:
+            return self
+        if not self._sender_pool:
+            for _ in range(MAX_CONNECTIONS - 1):
+                sender = await self._borrow_exported_sender(self.session.dc_id)
+                self._sender_pool.append(sender)
+            self._sender_pool.append(self)
+
+        # Round robin
+        sender = self._sender_pool.pop(0)
+        self._sender_pool.append(sender)
+        return sender
 
     def forward_to(self, message, destinations):
         for destination in destinations:
@@ -306,7 +322,6 @@ class TelegramUploadClient(TelegramClient):
                     # what Telegram wants.
                     hash_md5.update(part)
 
-                # The SavePartRequest is different depending on whether
                 # the file is too large or not (over or less than 10MB)
                 if is_big:
                     request = functions.upload.SaveBigFilePartRequest(
@@ -315,10 +330,13 @@ class TelegramUploadClient(TelegramClient):
                     request = functions.upload.SaveFilePartRequest(
                         file_id, part_index, part)
                 await self.upload_semaphore.acquire()
+                sender = await self._get_sender()
                 self.loop.create_task(
-                    self._send_file_part(request, part_index, part_count, pos, file_size, progress_callback),
+                    self._send_file_part(request, part_index, part_count, pos, file_size, progress_callback,
+                                         sender=sender),
                     name=f"telegram-upload-file-{part_index}"
                 )
+
             # Wait for all tasks to finish
             await asyncio.wait([
                 task for task in asyncio.all_tasks() if task.get_name().startswith(f"telegram-upload-file-")
@@ -333,7 +351,8 @@ class TelegramUploadClient(TelegramClient):
     # endregion
 
     async def _send_file_part(self, request: TLRequest, part_index: int, part_count: int, pos: int, file_size: int,
-                              progress_callback: Optional['hints.ProgressCallback'] = None, retry: int = 0) -> None:
+                              progress_callback: Optional['hints.ProgressCallback'] = None, retry: int = 0,
+                              sender=None) -> None:
         """
         Submit the file request part to Telegram. This method waits for the request to be executed, logs the upload,
         and releases the semaphore to allow further uploading.
@@ -344,11 +363,13 @@ class TelegramUploadClient(TelegramClient):
         :param pos: Number of part as integer. Used for progress bar.
         :param file_size: Total file size. Used for progress bar.
         :param progress_callback: Callback to use after submit the request. Optional.
+        :param sender: Sender to use for this part. Optional.
         :return: None
         """
         result = None
+        sender = sender or self
         try:
-            result = await self(request)
+            result = await sender(request)
         except InvalidBufferError as e:
             if e.code == 429:
                 # Too many connections
@@ -365,7 +386,8 @@ class TelegramUploadClient(TelegramClient):
             await asyncio.sleep(max(MIN_RECONNECT_WAIT, retry * MIN_RECONNECT_WAIT))
             await self.reconnect()
             await self._send_file_part(
-                request, part_index, part_count, pos, file_size, progress_callback, retry + 1
+                request, part_index, part_count, pos, file_size, progress_callback, retry + 1,
+                sender=sender
             )
         elif result:
             self._log[__name__].debug('Uploaded %d/%d',

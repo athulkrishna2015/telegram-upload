@@ -128,14 +128,19 @@ You can see all `the possible values for the entity in the documentation <https:
 
 Performance & Speed
 -------------------
-To **improve upload speed**, you can increase the number of parallel upload blocks using the ``TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS`` environment variable. The default is ``4``.
+To **improve upload speed**, you can increase the number of parallel upload blocks and use multiple connections (Speed Boost).
+
+*   ``TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS``: Number of chunks sent in parallel. Default is ``8``.
+*   ``TELEGRAM_UPLOAD_MAX_CONNECTIONS``: Number of parallel TCP connections to use. Default is ``1``. Increasing this can significantly boost speed for high-bandwidth connections.
 
 .. code-block:: console
 
+    # Boost speed using 16 parallel blocks and 4 connections
     $ export TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS=16
+    $ export TELEGRAM_UPLOAD_MAX_CONNECTIONS=4
     $ telegram-upload large-file.zip
 
-Note: Increasing this value too much may lead to connection errors or rate limits from Telegram.
+Note: Using too many connections may lead to temporary rate limits (Flood Wait) from Telegram.
 
 Split & join files
 ------------------
