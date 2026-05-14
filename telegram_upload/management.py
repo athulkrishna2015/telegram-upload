@@ -112,8 +112,9 @@ class MutuallyExclusiveOption(click.Option):
 
 @click.command()
 @click.argument('files', nargs=-1)
-@click.option('--to', default=None, help='Phone number, username, invite link or "me" (saved messages). '
+@click.option('--to', multiple=True, help='Phone number, username, invite link or "me" (saved messages). '
                                          'By default "me".')
+
 @click.option('--config', default=None, help='Configuration file to use. By default "{}".'.format(CONFIG_FILE))
 @click.option('-d', '--delete-on-success', is_flag=True, help='Delete local file after successful upload.')
 @click.option('--print-file-id', is_flag=True, help='Print the id of the uploaded file after the upload.')
@@ -142,7 +143,7 @@ class MutuallyExclusiveOption(click.Option):
               help='Use interactive mode.')
 @click.option('--sort', is_flag=True,
               help='Sort files by name before upload it. Install the natsort Python package for natural sorting.')
-@click.option('--topic', '-t', default=None, type=int, help='Topic ID to upload the file to.')
+@click.option('--topic', '-t', multiple=True, type=int, help='Topic ID to upload the file to.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
            no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic):
     """Upload one or more files to Telegram using your personal account.
@@ -158,12 +159,12 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     if interactive and not files:
         # No files selected. Exiting.
         return
-    if interactive and to is None:
+    if interactive and not to:
         click.echo('Select the recipient dialog of the files:')
         click.echo('[SPACE] Select dialog [ENTER] Next step')
-        to = async_to_sync(interactive_select_dialog(client))
-    elif to is None:
-        to = 'me'
+        to = (async_to_sync(interactive_select_dialog(client)),)
+    elif not to:
+        to = ('me',)
     files = filter(lambda file: is_valid_file(file, lambda message: click.echo(message, err=True)), files)
     files = DIRECTORY_MODES[directories](client, files)
     if directories == 'fail':
@@ -180,20 +181,50 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     if large_files == 'fail':
         # Validate now
         files = list(files)
-    if isinstance(to, str) and to.lstrip("-+").isdigit():
-        to = int(to)
+
+    # destinations pairing logic
+    destinations = []
+    if not topic:
+        for t in to:
+            destinations.append((t, None))
+    elif len(to) == 1:
+        for t in topic:
+            destinations.append((to[0], t))
+    elif len(to) == len(topic):
+        for t, top in zip(to, topic):
+            destinations.append((t, top))
+    else:
+        raise click.UsageError('The number of --to and --topic arguments must match '
+                              '(or use one --to with multiple --topic).')
+
     if sort and natsorted:
         files = natsorted(files, key=lambda x: x.name)
     elif sort:
         files = sorted(files, key=lambda x: x.name)
-    if album:
-        client.send_files_as_album(to, files, delete_on_success, print_file_id, forward, reply_to=topic)
-    else:
-        client.send_files(to, files, delete_on_success, print_file_id, forward, reply_to=topic)
+
+    files = list(files)
+    for i, (dest, top) in enumerate(destinations):
+        if i > 0:
+            for f in files:
+                if hasattr(f, 'seek'):
+                    f.seek(0)
+                if hasattr(f, 'remaining_size') and hasattr(f, 'max_read_size'):
+                    f.remaining_size = f.max_read_size
+
+        # Only delete on success if it's the last destination
+        delete = delete_on_success and i == len(destinations) - 1
+
+        if isinstance(dest, str) and dest.lstrip("-+").isdigit():
+            dest = int(dest)
+
+        if album:
+            client.send_files_as_album(dest, files, delete, print_file_id, forward, reply_to=top)
+        else:
+            client.send_files(dest, files, delete, print_file_id, forward, reply_to=top)
 
 
 @click.command()
-@click.option('--from', '-f', 'from_', default='',
+@click.option('--from', '-f', 'from_', multiple=True,
               help='Phone number, username, chat id or "me" (saved messages). By default "me".')
 @click.option('--config', default=None, help='Configuration file to use. By default "{}".'.format(CONFIG_FILE))
 @click.option('-d', '--delete-on-success', is_flag=True,
@@ -205,7 +236,8 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
               help='Defines how to download large files split in Telegram. By default the files are not merged.')
 @click.option('-i', '--interactive', is_flag=True,
               help='Use interactive mode.')
-@click.option('--topic', '-t', default=None, type=int, help='Topic ID to download the files from.')
+@click.option('--topic', '-t', multiple=True, type=int, help='Topic ID to download the files from.')
+
 def download(from_, config, delete_on_success, proxy, split_files, interactive, topic):
     """Download all the latest messages that are files in a chat, by default download
     from "saved messages". It is recommended to forward the files to download to
@@ -214,23 +246,43 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
     """
     client = TelegramManagerClient(config or default_config(), proxy=proxy)
     client.start()
+
     if not interactive and not from_:
-        from_ = 'me'
-    elif isinstance(from_, str)  and from_.lstrip("-+").isdigit():
-        from_ = int(from_)
+        from_ = ('me',)
     elif interactive and not from_:
         click.echo('Select the dialog of the files to download:')
         click.echo('[SPACE] Select dialog [ENTER] Next step')
-        from_ = async_to_sync(interactive_select_dialog(client))
-    if interactive:
-        click.echo('Select all files to download:')
-        click.echo('[SPACE] Select files [ENTER] Download selected files')
-        messages = async_to_sync(interactive_select_files(client, from_, topic))
+        from_ = (async_to_sync(interactive_select_dialog(client)),)
+
+    # destinations pairing logic
+    destinations = []
+    if not topic:
+        for f in from_:
+            destinations.append((f, None))
+    elif len(from_) == 1:
+        for t in topic:
+            destinations.append((from_[0], t))
+    elif len(from_) == len(topic):
+        for f, t in zip(from_, topic):
+            destinations.append((f, t))
     else:
-        messages = client.find_files(from_, topic)
+        raise click.UsageError('The number of --from and --topic arguments must match '
+                              '(or use one --from with multiple --topic).')
+
+    messages = []
+    for dest, top in destinations:
+        if isinstance(dest, str) and dest.lstrip("-+").isdigit():
+            dest = int(dest)
+        if interactive:
+            click.echo(f'Select all files to download from {dest}' + (f' topic {top}' if top else '') + ':')
+            click.echo('[SPACE] Select files [ENTER] Download selected files')
+            messages.extend(async_to_sync(interactive_select_files(client, dest, top)))
+        else:
+            messages.extend(list(client.find_files(dest, top)))
+
     messages_cls = DOWNLOAD_SPLIT_FILE_MODES[split_files]
     download_files = messages_cls(reversed(list(messages)))
-    client.download_files(from_, download_files, delete_on_success)
+    client.download_files(from_[0] if from_ else 'me', download_files, delete_on_success)
 
 
 upload_cli = catch(upload)
