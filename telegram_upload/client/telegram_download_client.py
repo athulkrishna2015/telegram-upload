@@ -26,15 +26,15 @@ PARALLEL_DOWNLOAD_BLOCKS = get_environment_integer('TELEGRAM_UPLOAD_PARALLEL_DOW
 
 
 class TelegramDownloadClient(TelegramClient):
-    def find_files(self, entity):
-        for message in self.iter_messages(entity):
+    def find_files(self, entity, reply_to=None):
+        for message in self.iter_messages(entity, reply_to=reply_to):
             if message.document:
                 yield message
             else:
                 break
 
-    async def iter_files(self, entity):
-        async for message in self.iter_messages(entity=entity):
+    async def iter_files(self, entity, reply_to=None):
+        async for message in self.iter_messages(entity=entity, reply_to=reply_to):
             if message.document:
                 yield message
 

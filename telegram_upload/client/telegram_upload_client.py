@@ -36,10 +36,13 @@ class TelegramUploadClient(TelegramClient):
         for destination in destinations:
             self.forward_messages(destination, [message])
 
-    async def _send_album_media(self, entity, media):
+    async def _send_album_media(self, entity, media, reply_to=None):
         entity = await self.get_input_entity(entity)
+        if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
+            reply_to = types.InputReplyToMessage(reply_to)
         request = functions.messages.SendMultiMediaRequest(
-            entity, multi_media=media, silent=None, schedule_date=None, clear_draft=None
+            entity, multi_media=media, silent=None, schedule_date=None, clear_draft=None,
+            reply_to=reply_to
         )
         result = await self(request)
 
@@ -47,16 +50,18 @@ class TelegramUploadClient(TelegramClient):
         return self._get_response_message(random_ids, result, entity)
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
-                            forward=()):
+                            forward=(), reply_to=None):
         for files_group in grouper(ALBUM_FILES, files):
-            media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True)
-            async_to_sync(self._send_album_media(entity, media))
+            media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
+                                    reply_to=reply_to)
+            async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
 
-    def _send_file_message(self, entity, file, thumb, progress):
+    def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         message = self.send_file(entity, file, thumb=thumb,
                                  file_size=file.file_size if isinstance(file, File) else None,
                                  caption=file.file_caption, force_document=file.force_file,
-                                 progress_callback=progress, attributes=file.file_attributes)
+                                 progress_callback=progress, attributes=file.file_attributes,
+                                 reply_to=reply_to)
         if hasattr(message.media, 'document') and file.file_size != message.media.document.size:
             raise TelegramUploadDataLoss(
                 'Remote document size: {} bytes (local file size: {} bytes)'.format(
@@ -90,7 +95,7 @@ class TelegramUploadClient(TelegramClient):
         )
 
     def send_one_file(self, entity, file: File, send_as_media: bool = False, thumb: Optional[str] = None,
-                      retries=RETRIES):
+                      retries=RETRIES, reply_to=None):
         message = None
         progress, bar = get_progress_bar('Uploading', file.file_name, file.file_size)
 
@@ -100,30 +105,30 @@ class TelegramUploadClient(TelegramClient):
                 if send_as_media:
                     message = async_to_sync(self._send_media(entity, file, progress))
                 else:
-                    message = self._send_file_message(entity, file, thumb, progress)
+                    message = self._send_file_message(entity, file, thumb, progress, reply_to=reply_to)
             finally:
                 bar.render_finish()
         except FloodWaitError as e:
             click.echo(f'{e}. Waiting for {e.seconds} seconds.', err=True)
             time.sleep(e.seconds)
-            message = self.send_one_file(entity, file, send_as_media, thumb, retries)
+            message = self.send_one_file(entity, file, send_as_media, thumb, retries, reply_to=reply_to)
         except RPCError as e:
             if retries > 0:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. Retrying...', err=True)
-                message = self.send_one_file(entity, file, send_as_media, thumb, retries - 1)
+                message = self.send_one_file(entity, file, send_as_media, thumb, retries - 1, reply_to=reply_to)
             else:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. It will not be retried.', err=True)
         return message
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
-                   forward=(), send_as_media: bool = False):
+                   forward=(), send_as_media: bool = False, reply_to=None):
         has_files = False
         messages = []
         for file in files:
             has_files = True
             thumb = file.get_thumbnail()
             try:
-                message = self.send_one_file(entity, file, send_as_media, thumb=thumb)
+                message = self.send_one_file(entity, file, send_as_media, thumb=thumb, reply_to=reply_to)
             finally:
                 if thumb and not file.is_custom_thumbnail and os.path.lexists(thumb):
                     os.remove(thumb)

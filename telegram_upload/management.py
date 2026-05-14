@@ -57,8 +57,8 @@ def get_file_display_name(message):
     return ' '.join(display_name_parts)
 
 
-async def interactive_select_files(client, entity: str):
-    iterator = client.iter_files(entity)
+async def interactive_select_files(client, entity: str, topic: int = None):
+    iterator = client.iter_files(entity, reply_to=topic)
     iterator = amap(lambda x: (x, get_file_display_name(x)), iterator,)
     return await show_checkboxlist(iterator)
 
@@ -142,8 +142,9 @@ class MutuallyExclusiveOption(click.Option):
               help='Use interactive mode.')
 @click.option('--sort', is_flag=True,
               help='Sort files by name before upload it. Install the natsort Python package for natural sorting.')
+@click.option('--topic', default=None, type=int, help='Topic ID to upload the file to.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
-           no_thumbnail, thumbnail_file, proxy, album, interactive, sort):
+           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
@@ -186,9 +187,9 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     elif sort:
         files = sorted(files, key=lambda x: x.name)
     if album:
-        client.send_files_as_album(to, files, delete_on_success, print_file_id, forward)
+        client.send_files_as_album(to, files, delete_on_success, print_file_id, forward, reply_to=topic)
     else:
-        client.send_files(to, files, delete_on_success, print_file_id, forward)
+        client.send_files(to, files, delete_on_success, print_file_id, forward, reply_to=topic)
 
 
 @click.command()
@@ -204,7 +205,8 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
               help='Defines how to download large files split in Telegram. By default the files are not merged.')
 @click.option('-i', '--interactive', is_flag=True,
               help='Use interactive mode.')
-def download(from_, config, delete_on_success, proxy, split_files, interactive):
+@click.option('--topic', default=None, type=int, help='Topic ID to download the files from.')
+def download(from_, config, delete_on_success, proxy, split_files, interactive, topic):
     """Download all the latest messages that are files in a chat, by default download
     from "saved messages". It is recommended to forward the files to download to
     "saved messages" and use parameter ``--delete-on-success``. Forwarded messages will
@@ -223,9 +225,9 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive):
     if interactive:
         click.echo('Select all files to download:')
         click.echo('[SPACE] Select files [ENTER] Download selected files')
-        messages = async_to_sync(interactive_select_files(client, from_))
+        messages = async_to_sync(interactive_select_files(client, from_, topic))
     else:
-        messages = client.find_files(from_)
+        messages = client.find_files(from_, topic)
     messages_cls = DOWNLOAD_SPLIT_FILE_MODES[split_files]
     download_files = messages_cls(reversed(list(messages)))
     client.download_files(from_, download_files, delete_on_success)
