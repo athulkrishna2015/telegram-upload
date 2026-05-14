@@ -43,9 +43,19 @@ To **install 🔧 telegram-upload**, run this command in your terminal:
 
 .. code-block:: console
 
-    $ sudo pip3 install https://github.com/athulkrishna2015/telegram-upload/archive/refs/heads/master.zip
+    $ uv tool install telegram-upload
 
-This is the preferred method to install telegram-upload, as it will always install the most recent stable release.
+Or install the most recent stable release from GitHub:
+
+.. code-block:: console
+
+    $ uv tool install https://github.com/Nekmo/telegram-upload/archive/refs/heads/master.zip
+
+Alternatively, you can use pip:
+
+.. code-block:: console
+
+    $ sudo pip3 install telegram-upload
 🐍 **Python 3.7-3.11** are tested and supported. There are other installation ways available like `Docker <#-docker>`_.
 More info in the `📕 documentation <https://docs.nekmo.org/telegram-upload/installation.html>`_
 

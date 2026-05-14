@@ -300,18 +300,16 @@ class FilePath(FileMixin, Path):
     def __new__(cls, *args, **kwargs):
         if cls is FilePath:
             cls = WindowsFilePath if os.name == 'nt' else PosixFilePath
-        self = cls._from_parts(args)
-        if not self._flavour.is_supported:
-            raise NotImplementedError("cannot instantiate %r on your system"
-                                      % (cls.__name__,))
-        return self
+        if hasattr(cls, '_from_parts'):
+            return cls._from_parts(args)
+        return super().__new__(cls, *args, **kwargs)
 
 
-class WindowsFilePath(FileMixin, WindowsPath):
+class WindowsFilePath(FilePath, WindowsPath):
     pass
 
 
-class PosixFilePath(FileMixin, PosixPath):
+class PosixFilePath(FilePath, PosixPath):
     pass
 
 

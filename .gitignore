@@ -63,3 +63,5 @@ target/
 
 /.idea
 *.session*
+.venv/
+.pytest_cache/
