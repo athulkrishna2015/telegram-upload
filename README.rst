@@ -107,20 +107,35 @@ chat. However you can define the 👨 destination. For file upload the argument 
 
     $ telegram-upload --to telegram.me/joinchat/AAAAAEkk2WdoDrB4-Q8-gg video.mkv
 
-You can download files from a specific chat using the --from <entity> parameter. For example:
-
-.. code-block::
-
-    $ telegram-download --from username
-
-You can also upload or download files from a specific **topic** in a forum-enabled group using the ``--topic <id>`` parameter:
+You can also upload or download files from a specific **topic** in a forum-enabled group using the ``--topic <id>`` (or ``-t <id>``) parameter:
 
 .. code-block::
 
     $ telegram-upload --to my_group --topic 42 video.mkv
     $ telegram-download --from my_group --topic 42
 
+Telegram-upload supports **multiple destinations** in a single command. You can broadcast a file to multiple chats or topics:
+
+.. code-block:: console
+
+    # Send to multiple topics in the same group
+    $ telegram-upload --to my_group -t 1 -t 2 file.zip
+
+    # Send to different groups
+    $ telegram-upload --to group1 --to group2 file.zip
+
 You can see all `the possible values for the entity in the documentation <https://docs.nekmo.org/telegram-upload/usage.html#set-recipient-or-sender>`_.
+
+Performance & Speed
+-------------------
+To **improve upload speed**, you can increase the number of parallel upload blocks using the ``TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS`` environment variable. The default is ``4``.
+
+.. code-block:: console
+
+    $ export TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS=16
+    $ telegram-upload large-file.zip
+
+Note: Increasing this value too much may lead to connection errors or rate limits from Telegram.
 
 Split & join files
 ------------------
