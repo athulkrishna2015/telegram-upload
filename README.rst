@@ -56,7 +56,7 @@ Alternatively, you can use pip:
 .. code-block:: console
 
     $ sudo pip3 install telegram-upload
-🐍 **Python 3.7-3.11** are tested and supported. There are other installation ways available like `Docker <#-docker>`_.
+🐍 **Python 3.7-3.14** are tested and supported. There are other installation ways available like `Docker <#-docker>`_.
 More info in the `📕 documentation <https://docs.nekmo.org/telegram-upload/installation.html>`_
 
 .. image:: https://raw.githubusercontent.com/Nekmo/telegram-upload/master/telegram-upload-demo.gif
@@ -112,6 +112,13 @@ You can download files from a specific chat using the --from <entity> parameter.
 .. code-block::
 
     $ telegram-download --from username
+
+You can also upload or download files from a specific **topic** in a forum-enabled group using the ``--topic <id>`` parameter:
+
+.. code-block::
+
+    $ telegram-upload --to my_group --topic 42 video.mkv
+    $ telegram-download --from my_group --topic 42
 
 You can see all `the possible values for the entity in the documentation <https://docs.nekmo.org/telegram-upload/usage.html#set-recipient-or-sender>`_.
 
