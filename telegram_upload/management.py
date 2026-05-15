@@ -167,64 +167,94 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         to = (async_to_sync(interactive_select_dialog(client)),)
     elif not to:
         to = ('me',)
-    files = filter(lambda file: is_valid_file(file, lambda message: click.echo(message, err=True)), files)
-    files = DIRECTORY_MODES[directories](client, files)
-    if directories == 'fail':
-        # Validate now
-        files = list(files)
-    if no_thumbnail:
-        thumbnail = False
-    elif thumbnail_file:
-        thumbnail = thumbnail_file
-    else:
-        thumbnail = None
-    files_cls = LARGE_FILE_MODES[large_files]
-    files = files_cls(client, files, caption=caption, thumbnail=thumbnail, force_file=force_file)
-    if large_files == 'fail':
-        # Validate now
-        files = list(files)
+
+    def wrap_files(paths):
+        paths = filter(lambda file: is_valid_file(file, lambda message: click.echo(message, err=True)), paths)
+        paths = DIRECTORY_MODES[directories](client, paths)
+        if directories == 'fail':
+            # Validate now
+            paths = list(paths)
+        if no_thumbnail:
+            thumbnail = False
+        elif thumbnail_file:
+            thumbnail = thumbnail_file
+        else:
+            thumbnail = None
+        files_cls = LARGE_FILE_MODES[large_files]
+        paths = files_cls(client, paths, caption=caption, thumbnail=thumbnail, force_file=force_file)
+        if large_files == 'fail':
+            # Validate now
+            paths = list(paths)
+        if sort and natsorted:
+            paths = natsorted(paths, key=lambda x: x.name)
+        elif sort:
+            paths = sorted(paths, key=lambda x: x.name)
+        return list(paths)
 
     # destinations pairing logic
     destinations = []
-    if not topic:
-        for t in to:
-            destinations.append((t, None))
-    elif len(to) == 1:
-        for t in topic:
-            destinations.append((to[0], t))
-    elif len(to) == len(topic):
-        for t, top in zip(to, topic):
-            destinations.append((t, top))
+    file_groups = []
+    
+    if not distribute and len(topic) == len(files) and len(files) > 0:
+        # Targeted distribution (Explicit mapping)
+        expanded_to = list(to)
+        if len(to) == 1 and len(topic) > 1:
+            expanded_to = expanded_to * len(topic)
+            
+        if len(expanded_to) == len(topic):
+            dest_map = {}
+            for t, top, f in zip(expanded_to, topic, files):
+                key = (t, top)
+                if key not in dest_map:
+                    dest_map[key] = []
+                # Handle comma-separated files in a single argument
+                dest_map[key].extend(f.split(','))
+            
+            for key, paths in dest_map.items():
+                destinations.append(key)
+                file_groups.append(wrap_files(paths))
+        else:
+            raise click.UsageError('The number of --to and --topic arguments must match '
+                                  'when using targeted distribution.')
     else:
-        raise click.UsageError('The number of --to and --topic arguments must match '
-                              '(or use one --to with multiple --topic).')
+        # Broadcast or Equal distribution
+        if not topic:
+            for t in to:
+                destinations.append((t, None))
+        elif len(to) == 1:
+            for t in topic:
+                destinations.append((to[0], t))
+        elif len(to) == len(topic):
+            for t, top in zip(to, topic):
+                destinations.append((t, top))
+        else:
+            raise click.UsageError('The number of --to and --topic arguments must match '
+                                  '(or use one --to with multiple --topic).')
 
-    if sort and natsorted:
-        files = natsorted(files, key=lambda x: x.name)
-    elif sort:
-        files = sorted(files, key=lambda x: x.name)
-
-    files = list(files)
-    if distribute:
-        if len(files) % len(destinations) != 0:
-            raise click.UsageError('Number of files must be a multiple of the number of destinations '
-                                  'when using --distribute.')
-        chunk_size = len(files) // len(destinations)
-        file_groups = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
-    else:
-        file_groups = [files] * len(destinations)
+        all_files = wrap_files(files)
+        if distribute:
+            if len(all_files) % len(destinations) != 0:
+                raise click.UsageError('Number of files must be a multiple of the number of destinations '
+                                      'when using --distribute.')
+            chunk_size = len(all_files) // len(destinations)
+            file_groups = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
+        else:
+            file_groups = [all_files] * len(destinations)
 
     for i, (dest, top) in enumerate(destinations):
         current_files = file_groups[i]
-        if i > 0 and not distribute:
+        is_reused = not distribute and file_groups.count(current_files) > 1 and file_groups.index(current_files) < i
+        
+        if is_reused:
             for f in current_files:
                 if hasattr(f, 'seek'):
                     f.seek(0)
                 if hasattr(f, 'remaining_size') and hasattr(f, 'max_read_size'):
                     f.remaining_size = f.max_read_size
 
-        # Only delete on success if it's the last destination or in distribute mode
-        delete = delete_on_success and (distribute or i == len(destinations) - 1)
+        # Only delete on success if it's the last time this file group is used
+        is_last_use = i == len(destinations) - 1 or current_files not in file_groups[i+1:]
+        delete = delete_on_success and is_last_use
 
         if isinstance(dest, str) and dest.lstrip("-+").isdigit():
             dest = int(dest)

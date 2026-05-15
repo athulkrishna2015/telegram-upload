@@ -131,6 +131,16 @@ You can also **distribute** different files to different topics using the ``--di
     # Send file1.zip to Topic 1 and file2.zip to Topic 2
     $ telegram-upload --to my_group -t 1 -t 2 --distribute file1.zip file2.zip
 
+For **explicit mapping**, you can repeat the topic flag followed by the specific files for that topic. Comma-separated lists are also supported:
+
+.. code-block:: console
+
+    # Send file1 to Topic 1 and file2 to Topic 2 (1-to-1 mapping)
+    $ telegram-upload --to MyGroup -t 1 "file1.zip" -t 2 "file2.zip"
+
+    # Multiple files per topic using commas
+    $ telegram-upload --to MyGroup -t 442 "vid1.mp4,pdf1.pdf" -t 445 "vid2.mp4"
+
 You can see all `the possible values for the entity in the documentation <https://docs.nekmo.org/telegram-upload/usage.html#set-recipient-or-sender>`_.
 
 Performance & Speed
