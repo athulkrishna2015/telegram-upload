@@ -65,3 +65,10 @@ target/
 *.session*
 .venv/
 .pytest_cache/
+.env
+
+# Functional test artifacts
+tests/Test_Topic_Folder/
+tests/dist1.txt
+tests/dist2.txt
+tests/normal.txt

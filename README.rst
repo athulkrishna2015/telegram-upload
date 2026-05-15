@@ -98,6 +98,20 @@ a **terminal 🪄 wizard**. It even **supports mouse**!
 
 `More info in the documentation <https://docs.nekmo.org/telegram-upload/usage.html#interactive-mode>`_
 
+Tests
+=====
+To run the unit tests:
+
+.. code-block:: console
+
+    $ python3 -m unittest discover tests
+
+You can also run functional tests using the provided script (requires a ``.env`` file or local configuration):
+
+.. code-block:: console
+
+    $ ./tests/functional_test.sh
+
 Set group or chat
 -----------------
 By default when using telegram-upload without specifying the recipient or sender, telegram-upload will use your personal
