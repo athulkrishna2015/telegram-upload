@@ -194,59 +194,61 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     # destinations pairing logic
     destinations = []
     file_groups = []
-    
-    if not distribute and len(topic) == len(files) and len(files) > 0:
-        # Targeted distribution (Explicit mapping)
-        expanded_to = list(to)
-        if len(to) == 1 and len(topic) > 1:
-            expanded_to = expanded_to * len(topic)
-            
-        if len(expanded_to) == len(topic):
-            dest_map = {}
-            for t, top, f in zip(expanded_to, topic, files):
-                key = (t, top)
-                if key not in dest_map:
-                    dest_map[key] = []
-                # Handle comma-separated files in a single argument
-                dest_map[key].extend(f.split(','))
-            
-            for key, paths in dest_map.items():
-                destinations.append(key)
-                file_groups.append(wrap_files(paths))
-        else:
-            raise click.UsageError('The number of --to and --topic arguments must match '
-                                  'when using targeted distribution.')
-    else:
-        # Broadcast or Equal distribution
-        if not topic:
-            for t in to:
-                destinations.append((t, None))
-        elif len(to) == 1:
-            for t in topic:
-                destinations.append((to[0], t))
-        elif len(to) == len(topic):
-            for t, top in zip(to, topic):
-                destinations.append((t, top))
-        else:
-            raise click.UsageError('The number of --to and --topic arguments must match '
-                                  '(or use one --to with multiple --topic).')
 
+    # Get raw destinations (to/topic pairs)
+    raw_destinations = []
+    if not topic:
+        for t in to:
+            raw_destinations.append((t, None))
+    elif len(to) == 1:
+        for t in topic:
+            raw_destinations.append((to[0], t))
+    elif len(to) == len(topic):
+        for t, top in zip(to, topic):
+            raw_destinations.append((t, top))
+    else:
+        raise click.UsageError('The number of --to and --topic arguments must match '
+                              '(or use one --to with multiple --topic).')
+
+    if distribute:
+        # Equal distribution
+        destinations = raw_destinations
         all_files = wrap_files(files)
-        if distribute:
-            if len(all_files) % len(destinations) != 0:
-                raise click.UsageError('Number of files must be a multiple of the number of destinations '
-                                      'when using --distribute.')
-            chunk_size = len(all_files) // len(destinations)
-            file_groups = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
-        else:
-            file_groups = [all_files] * len(destinations)
+        if len(all_files) % len(destinations) != 0:
+            raise click.UsageError('Number of files must be a multiple of the number of destinations '
+                                  'when using --distribute.')
+        chunk_size = len(all_files) // len(destinations)
+        file_groups = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
+    elif len(raw_destinations) > 1:
+        # Multiple destinations: Must be Targeted distribution (1-to-1 mapping)
+        if len(raw_destinations) != len(files):
+            raise click.UsageError('When providing multiple topics or destinations, you must provide '
+                                  'the same number of file arguments (one for each topic) '
+                                  'unless using --distribute.')
+        
+        dest_map = {}
+        for (t, top), f in zip(raw_destinations, files):
+            key = (t, top)
+            if key not in dest_map:
+                dest_map[key] = []
+            dest_map[key].extend(f.split(','))
+        
+        for key, paths in dest_map.items():
+            destinations.append(key)
+            file_groups.append(wrap_files(paths))
+    else:
+        # Single destination: send all files
+        destinations = raw_destinations
+        file_groups = [wrap_files(files)]
 
     for i, (dest, top) in enumerate(destinations):
         current_files = file_groups[i]
-        is_reused = not distribute and file_groups.count(current_files) > 1 and file_groups.index(current_files) < i
         
-        if is_reused:
-            for f in current_files:
+        # Check if files in this group were already used in a previous group (for re-seek)
+        # This is unlikely in strict targeted mode but possible if the same file is listed twice
+        previous_files = [f for group in file_groups[:i] for f in group]
+        for f in current_files:
+            if f in previous_files:
                 if hasattr(f, 'seek'):
                     f.seek(0)
                 if hasattr(f, 'remaining_size') and hasattr(f, 'max_read_size'):

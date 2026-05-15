@@ -114,28 +114,18 @@ You can also upload or download files from a specific **topic** in a forum-enabl
     $ telegram-upload --to my_group --topic 42 video.mkv
     $ telegram-download --from my_group --topic 42
 
-Telegram-upload supports **multiple destinations** in a single command. You can broadcast a file to multiple chats or topics:
-
-.. code-block:: console
-
-    # Send to multiple topics in the same group
-    $ telegram-upload --to my_group -t 1 -t 2 file.zip
-
-    # Send to different groups
-    $ telegram-upload --to group1 --to group2 file.zip
-
-You can also **distribute** different files to different topics using the ``--distribute`` flag. This will divide the files among the destinations:
+Telegram-upload supports **multiple destinations** in a single command. You can **distribute** different files to different topics using the ``--distribute`` flag. This will divide the files among the destinations:
 
 .. code-block:: console
 
     # Send file1.zip to Topic 1 and file2.zip to Topic 2
     $ telegram-upload --to my_group -t 1 -t 2 --distribute file1.zip file2.zip
 
-For **explicit mapping**, you can repeat the topic flag followed by the specific files for that topic. Comma-separated lists are also supported:
+For **explicit mapping**, you can repeat the topic flag followed by the specific files for that topic (1-to-1 mapping). Comma-separated lists are also supported:
 
 .. code-block:: console
 
-    # Send file1 to Topic 1 and file2 to Topic 2 (1-to-1 mapping)
+    # Send file1 to Topic 1 and file2 to Topic 2
     $ telegram-upload --to MyGroup -t 1 "file1.zip" -t 2 "file2.zip"
 
     # Multiple files per topic using commas
