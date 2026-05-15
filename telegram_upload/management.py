@@ -122,9 +122,8 @@ class MutuallyExclusiveOption(click.Option):
                                                  'but the preview will not be available.')
 @click.option('-f', '--forward', multiple=True, help='Forward the file to a chat (alias or id) or user (username, '
                                                      'mobile or id). This option can be used multiple times.')
-@click.option('--directories', default='fail', type=click.Choice(list(DIRECTORY_MODES.keys())),
-              help='Defines how to process directories. By default directories are not accepted and will raise an '
-                   'error.')
+@click.option('--directories', default='recursive', type=click.Choice(list(DIRECTORY_MODES.keys())),
+              help='Defines how to process directories. By default directories are processed recursively.')
 @click.option('--large-files', default='fail', type=click.Choice(list(LARGE_FILE_MODES.keys())),
               help='Defines how to process large files unsupported for Telegram. By default large files are not '
                    'accepted and will raise an error.')

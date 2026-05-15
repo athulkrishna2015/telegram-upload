@@ -114,11 +114,16 @@ You can also upload or download files from a specific **topic** in a forum-enabl
     $ telegram-upload --to my_group --topic 42 video.mkv
     $ telegram-upload --to my_group --topic "Physics Class" video.mkv
 
-If you provide a **directory path** to the topic flag, the tool will automatically create a topic with the folder's name (if it doesn't exist) and upload all files inside that folder to that topic:
+If you provide a **directory path** to the topic flag, the tool will automatically create a topic with the folder's name (if it doesn't exist) and upload all files inside that folder to that topic.
+
+However, if you pass a folder as a **positional argument** (without ``-t``), it will upload all files inside it to the main chat or the "General" topic:
 
 .. code-block:: console
 
-    # Automatically create/find topic "Nuclear Physics" and upload its content
+    # Upload files in folder to the main chat (no topic created)
+    $ telegram-upload --to my_group "/path/to/Nuclear Physics"
+
+    # Automatically create/find topic "Nuclear Physics" and upload its content there
     $ telegram-upload --to my_group -t "/path/to/Nuclear Physics"
 
 Telegram-upload supports **multiple destinations** in a single command. You can **distribute** different files to different topics using the ``--distribute`` flag. This will divide the files among the destinations:
