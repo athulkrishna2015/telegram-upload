@@ -143,7 +143,7 @@ class MutuallyExclusiveOption(click.Option):
               help='Use interactive mode.')
 @click.option('--sort', is_flag=True,
               help='Sort files by name before upload it. Install the natsort Python package for natural sorting.')
-@click.option('--topic', '-t', multiple=True, type=int, help='Topic ID to upload the file to.')
+@click.option('--topic', '-t', multiple=True, help='Topic ID, name or folder path to upload the file to.')
 @click.option('--distribute', is_flag=True,
               help='Distribute files among destinations instead of broadcasting all files to all destinations.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
@@ -219,29 +219,54 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
 
     if distribute:
         # Equal distribution
-        destinations = raw_destinations
+        destinations = []
+        for t, top in raw_destinations:
+            if top and os.path.isdir(str(top)):
+                top_name = os.path.basename(str(top).rstrip('/\\'))
+                top = async_to_sync(client.get_or_create_topic(t, top_name))
+            elif top and not str(top).isdigit():
+                top = async_to_sync(client.get_or_create_topic(t, top))
+            elif top:
+                top = int(top)
+            destinations.append((t, top))
+
         all_files = wrap_files(files)
         if len(all_files) % len(destinations) != 0:
             raise click.UsageError('Number of files must be a multiple of the number of destinations '
                                   'when using --distribute.')
         chunk_size = len(all_files) // len(destinations)
         file_groups = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
-    elif len(raw_destinations) > 1:
-        # Multiple destinations: Must be Targeted distribution (1-to-1 mapping)
-        if len(raw_destinations) != len(files):
+    elif len(raw_destinations) > 1 or (len(raw_destinations) == 1 and raw_destinations[0][1] is not None):
+        # Multiple destinations or Single Topic
+        target_files = list(files)
+        # If user did -t folder but no files, we treat folder as source
+        if not target_files:
+            target_files = [None] * len(raw_destinations)
+
+        if len(raw_destinations) != len(target_files):
             raise click.UsageError('When providing multiple topics or destinations, you must provide '
                                   'the same number of file arguments (one for each topic) '
                                   'unless using --distribute.')
-        
-        dest_map = {}
-        for (t, top), f in zip(raw_destinations, files):
-            key = (t, top)
-            if key not in dest_map:
-                dest_map[key] = []
-            dest_map[key].extend(f.split(','))
-        
-        for key, paths in dest_map.items():
-            destinations.append(key)
+
+        for (t, top), f in zip(raw_destinations, target_files):
+            paths = []
+            if top and os.path.isdir(str(top)):
+                top_path = str(top)
+                top_name = os.path.basename(top_path.rstrip('/\\'))
+                top = async_to_sync(client.get_or_create_topic(t, top_name))
+                if not f:
+                    # Pick files from folder
+                    paths = [os.path.join(top_path, x) for x in os.listdir(top_path)
+                             if os.path.isfile(os.path.join(top_path, x))]
+            elif top and not str(top).isdigit():
+                top = async_to_sync(client.get_or_create_topic(t, top))
+            elif top:
+                top = int(top)
+
+            if f:
+                paths.extend(f.split(','))
+
+            destinations.append((t, top))
             file_groups.append(wrap_files(paths))
     else:
         # Single destination: send all files
@@ -287,7 +312,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
               help='Defines how to download large files split in Telegram. By default the files are not merged.')
 @click.option('-i', '--interactive', is_flag=True,
               help='Use interactive mode.')
-@click.option('--topic', '-t', multiple=True, type=int, help='Topic ID to download the files from.')
+@click.option('--topic', '-t', multiple=True, help='Topic ID or name to download the files from.')
 
 def download(from_, config, delete_on_success, proxy, split_files, interactive, topic):
     """Download all the latest messages that are files in a chat, by default download
@@ -331,6 +356,12 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
     for dest, top in destinations:
         if isinstance(dest, str) and dest.lstrip("-+").isdigit():
             dest = int(dest)
+        
+        if top and not str(top).isdigit():
+            top = async_to_sync(client.get_or_create_topic(dest, top))
+        elif top:
+            top = int(top)
+
         if interactive:
             click.echo(f'Select all files to download from {dest}' + (f' topic {top}' if top else '') + ':')
             click.echo('[SPACE] Select files [ENTER] Download selected files')

@@ -107,12 +107,19 @@ chat. However you can define the 👨 destination. For file upload the argument 
 
     $ telegram-upload --to telegram.me/joinchat/AAAAAEkk2WdoDrB4-Q8-gg video.mkv
 
-You can also upload or download files from a specific **topic** in a forum-enabled group using the ``--topic <id>`` (or ``-t <id>``) parameter:
+You can also upload or download files from a specific **topic** in a forum-enabled group using the ``--topic <id_or_name>`` (or ``-t <id_or_name>``) parameter:
 
 .. code-block::
 
     $ telegram-upload --to my_group --topic 42 video.mkv
-    $ telegram-download --from my_group --topic 42
+    $ telegram-upload --to my_group --topic "Physics Class" video.mkv
+
+If you provide a **directory path** to the topic flag, the tool will automatically create a topic with the folder's name (if it doesn't exist) and upload all files inside that folder to that topic:
+
+.. code-block:: console
+
+    # Automatically create/find topic "Nuclear Physics" and upload its content
+    $ telegram-upload --to my_group -t "/path/to/Nuclear Physics"
 
 Telegram-upload supports **multiple destinations** in a single command. You can **distribute** different files to different topics using the ``--distribute`` flag. This will divide the files among the destinations:
 
@@ -127,6 +134,9 @@ For **explicit mapping**, you can repeat the topic flag followed by the specific
 
     # Send file1 to Topic 1 and file2 to Topic 2
     $ telegram-upload --to MyGroup -t 1 "file1.zip" -t 2 "file2.zip"
+
+    # Multiple folders to different topics
+    $ telegram-upload --to MyGroup -t "./Folder1" -t "./Folder2"
 
     # Advanced: 2 files to Topic 1 & 2 in Group A, and 2 files to Topic 1 & 2 in Group B
     $ telegram-upload --to GroupA -t 1 "file1" -t 2 "file2" --to GroupB -t 1 "file3" -t 2 "file4"

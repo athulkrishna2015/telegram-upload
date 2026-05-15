@@ -7,7 +7,8 @@ from typing import Union
 from urllib.parse import urlparse
 
 import click
-from telethon.errors import ApiIdInvalidError
+from telethon import functions
+from telethon.errors import ApiIdInvalidError, RPCError
 from telethon.network import ConnectionTcpMTProxyRandomizedIntermediate
 from telethon.tl.types import DocumentAttributeFilename, User, InputPeerUser
 from telethon.version import __version__ as telethon_version
@@ -126,3 +127,32 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
             return PREMIUM_USER_MAX_CAPTION_LENGTH
         else:
             return USER_MAX_CAPTION_LENGTH
+
+    async def get_or_create_topic(self, entity, title):
+        entity = await self.get_input_entity(entity)
+        # Search for existing topic
+        result = await self(functions.channels.GetForumTopicsRequest(
+            channel=entity,
+            query=title,
+            offset_date=0,
+            offset_id=0,
+            offset_topic=0,
+            limit=100
+        ))
+        for topic in result.topics:
+            if hasattr(topic, 'title') and topic.title == title:
+                return topic.id
+
+        # Create new topic if not found
+        try:
+            result = await self(functions.channels.CreateForumTopicRequest(
+                channel=entity,
+                title=title
+            ))
+            # The result contains the topic ID in the updates
+            for update in result.updates:
+                if hasattr(update, 'id'):
+                    return update.id
+        except RPCError as e:
+            click.echo(f'Could not create topic "{title}": {e}', err=True)
+            return None
