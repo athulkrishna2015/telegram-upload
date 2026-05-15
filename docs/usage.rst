@@ -201,3 +201,25 @@ The syntax is:
 .. code-block::
 
     $ telegram-download --split-files <keep|join>
+
+
+Skip already uploaded
+=====================
+You can skip files that have already been uploaded to the destination chat using the ``--skip`` (or ``-s``) flag.
+This checks the destination for files with the same name and size.
+
+.. code-block::
+
+    $ telegram-upload --skip video.mp4
+
+Resume support
+==============
+Telegram-upload automatically resumes interrupted uploads for large files. If an upload is stopped, simply run the
+same command again, and it will pick up from the last successfully uploaded part.
+
+Progress is tracked in ``~/.config/telegram-upload-progress.json``.
+
+Network Resilience
+==================
+The tool is designed to be resilient to network drops. It will persistently retry connection errors and timeouts,
+making it suitable for long-running uploads on unstable connections.

@@ -199,6 +199,24 @@ Files split using split can be rejoined on download using:
 
 Find more help in `the telegram-upload documentation <https://docs.nekmo.org/telegram-upload/usage.html#split-files>`_.
 
+Skip already uploaded
+---------------------
+You can **skip ⏭️ files** that have already been uploaded to the destination chat (channel, topic, or group) using the ``--skip`` (or ``-s``) flag. This checks the destination for files with the same name and size:
+
+.. code-block:: console
+
+    $ telegram-upload --skip video.mp4
+
+Resume support
+--------------
+Telegram-upload **automatically 🔄 resumes** interrupted uploads for large files. If an upload is stopped due to a network failure or manual interruption, simply run the same command again, and it will pick up from the last successfully uploaded part.
+
+Progress is tracked in ``~/.config/telegram-upload-progress.json`` and is automatically cleaned up once the upload is complete.
+
+Network Resilience
+------------------
+The tool is designed to be **resilient to network 🌐 drops**. It will persistently retry connection errors and timeouts, making it suitable for unstable connections or long-running uploads.
+
 Delete on success
 -----------------
 The ``--delete-on-success`` option allows you to ❌ **delete the Telegram message** after downloading the file. This is
