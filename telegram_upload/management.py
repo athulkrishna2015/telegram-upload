@@ -124,6 +124,7 @@ class MutuallyExclusiveOption(click.Option):
                                                      'mobile or id). This option can be used multiple times.')
 @click.option('--directories', default='recursive', type=click.Choice(list(DIRECTORY_MODES.keys())),
               help='Defines how to process directories. By default directories are processed recursively.')
+@click.option('--recursive', '-r', is_flag=True, help='Upload directories recursively. This is the default.')
 @click.option('--large-files', default='fail', type=click.Choice(list(LARGE_FILE_MODES.keys())),
               help='Defines how to process large files unsupported for Telegram. By default large files are not '
                    'accepted and will raise an error.')
@@ -145,12 +146,14 @@ class MutuallyExclusiveOption(click.Option):
 @click.option('--topic', '-t', multiple=True, help='Topic ID, name or folder path to upload the file to.')
 @click.option('--distribute', is_flag=True,
               help='Distribute files among destinations instead of broadcasting all files to all destinations.')
-def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
+def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, recursive, large_files, caption,
            no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
     """
+    if recursive:
+        directories = 'recursive'
     client = TelegramManagerClient(config or default_config(), proxy=proxy)
     client.start()
     if interactive and not files:

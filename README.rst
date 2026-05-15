@@ -116,12 +116,13 @@ You can also upload or download files from a specific **topic** in a forum-enabl
 
 If you provide a **directory path** to the topic flag, the tool will automatically create a topic with the folder's name (if it doesn't exist) and upload all files inside that folder to that topic.
 
-However, if you pass a folder as a **positional argument** (without ``-t``), it will upload all files inside it to the main chat or the "General" topic:
+However, if you pass a folder as a **positional argument** (without ``-t``), it will upload all files inside it to the main chat or the "General" topic. By default folders are processed recursively, but you can also use the ``--recursive`` (or ``-r``) flag explicitly:
 
 .. code-block:: console
 
     # Upload files in folder to the main chat (no topic created)
     $ telegram-upload --to my_group "/path/to/Nuclear Physics"
+    $ telegram-upload --to my_group -r "/path/to/Nuclear Physics"
 
     # Automatically create/find topic "Nuclear Physics" and upload its content there
     $ telegram-upload --to my_group -t "/path/to/Nuclear Physics"
