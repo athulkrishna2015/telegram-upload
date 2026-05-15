@@ -121,12 +121,15 @@ Telegram-upload supports **multiple destinations** in a single command. You can 
     # Send file1.zip to Topic 1 and file2.zip to Topic 2
     $ telegram-upload --to my_group -t 1 -t 2 --distribute file1.zip file2.zip
 
-For **explicit mapping**, you can repeat the topic flag followed by the specific files for that topic (1-to-1 mapping). Comma-separated lists are also supported:
+For **explicit mapping**, you can repeat the topic flag followed by the specific files for that topic (1-to-1 mapping). Comma-separated lists are also supported. You can even use multiple groups as "buckets" for sets of topics:
 
 .. code-block:: console
 
     # Send file1 to Topic 1 and file2 to Topic 2
     $ telegram-upload --to MyGroup -t 1 "file1.zip" -t 2 "file2.zip"
+
+    # Advanced: 2 files to Topic 1 & 2 in Group A, and 2 files to Topic 1 & 2 in Group B
+    $ telegram-upload --to GroupA -t 1 "file1" -t 2 "file2" --to GroupB -t 1 "file3" -t 2 "file4"
 
     # Multiple files per topic using commas
     $ telegram-upload --to MyGroup -t 442 "vid1.mp4,pdf1.pdf" -t 445 "vid2.mp4"

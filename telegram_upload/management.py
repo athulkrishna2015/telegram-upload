@@ -203,12 +203,19 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     elif len(to) == 1:
         for t in topic:
             raw_destinations.append((to[0], t))
-    elif len(to) == len(topic):
-        for t, top in zip(to, topic):
-            raw_destinations.append((t, top))
+    elif len(topic) % len(to) == 0:
+        topics_per_group = len(topic) // len(to)
+        for i, t in enumerate(to):
+            for top in topic[i * topics_per_group: (i + 1) * topics_per_group]:
+                raw_destinations.append((t, top))
+    elif len(to) % len(topic) == 0:
+        groups_per_topic = len(to) // len(topic)
+        for i, top in enumerate(topic):
+            for t in to[i * groups_per_topic: (i + 1) * groups_per_topic]:
+                raw_destinations.append((t, top))
     else:
-        raise click.UsageError('The number of --to and --topic arguments must match '
-                              '(or use one --to with multiple --topic).')
+        raise click.UsageError('The number of --to and --topic arguments must be multiples '
+                              'of each other (e.g. 2 groups for 4 topics).')
 
     if distribute:
         # Equal distribution
@@ -306,12 +313,19 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
     elif len(from_) == 1:
         for t in topic:
             destinations.append((from_[0], t))
-    elif len(from_) == len(topic):
-        for f, t in zip(from_, topic):
-            destinations.append((f, t))
+    elif len(topic) % len(from_) == 0:
+        topics_per_group = len(topic) // len(from_)
+        for i, f in enumerate(from_):
+            for t in topic[i * topics_per_group: (i + 1) * topics_per_group]:
+                destinations.append((f, t))
+    elif len(from_) % len(topic) == 0:
+        groups_per_topic = len(from_) // len(topic)
+        for i, t in enumerate(topic):
+            for f in from_[i * groups_per_topic: (i + 1) * groups_per_topic]:
+                destinations.append((f, t))
     else:
-        raise click.UsageError('The number of --from and --topic arguments must match '
-                              '(or use one --from with multiple --topic).')
+        raise click.UsageError('The number of --from and --topic arguments must be multiples '
+                              'of each other (e.g. 2 groups for 4 topics).')
 
     messages = []
     for dest, top in destinations:
