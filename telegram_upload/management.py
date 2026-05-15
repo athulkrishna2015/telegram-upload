@@ -248,15 +248,23 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         file_groups = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
     elif len(raw_destinations) > 1 or (len(raw_destinations) == 1 and raw_destinations[0][1] is not None):
         # Multiple destinations or Single Topic
-        target_files = list(files)
-        # If user did -t folder but no files, we treat folder as source
-        if not target_files:
-            target_files = [None] * len(raw_destinations)
-
-        if len(raw_destinations) != len(target_files):
-            raise click.UsageError('When providing multiple topics or destinations, you must provide '
-                                  'the same number of file arguments (one for each topic) '
-                                  'unless using --distribute.')
+        if len(raw_destinations) > 1:
+            # Interleaved grouping based on argv order
+            import sys
+            argv = sys.argv[1:]
+            interleaved_files = [[] for _ in range(len(raw_destinations))]
+            current_idx = -1
+            markers = ('-t', '--topic') if topic else ('--to',)
+            for arg in argv:
+                if arg in markers:
+                    current_idx += 1
+                elif arg in files:
+                    if 0 <= current_idx < len(interleaved_files):
+                        interleaved_files[current_idx].append(arg)
+            target_files = [','.join(group) if group else None for group in interleaved_files]
+        else:
+            # Single destination with topic
+            target_files = [','.join(files)] if files else [None]
 
         for (t, top), f in zip(raw_destinations, target_files):
             paths = []
