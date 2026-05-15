@@ -142,6 +142,18 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
             )
             mock_remove.assert_called_once_with(self.upload_file_path)
 
+    def test_send_files_with_directory_marker(self):
+        from telegram_upload.upload_files import DirectoryMarker
+        self.client.send_message = Mock()
+        self.client.pin_message = Mock()
+        entity = 'foo'
+        marker = DirectoryMarker('/path/to/subdir')
+        self.client.send_files(entity, [marker])
+        
+        self.client.send_message.assert_called_once()
+        self.assertIn('subdir', self.client.send_message.call_args[0][1])
+        self.client.pin_message.assert_called_once_with(entity, self.client.send_message.return_value)
+
     def test_send_files_data_loss(self):
         mock_client = MagicMock(max_caption_length=200)
         file = File(mock_client, self.upload_file_path)

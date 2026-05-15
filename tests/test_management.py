@@ -97,6 +97,134 @@ class TestUpload(unittest.TestCase):
 
     @patch('telegram_upload.management.default_config')
     @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_folder_recursive(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_get_topic(entity, title):
+            return 123
+        mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+
+        # Create a temporary directory structure
+        temp_dir = tempfile.mkdtemp()
+        try:
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            test_file = os.path.join(sub_dir, 'file.txt')
+            with open(test_file, 'w') as f:
+                f.write('content')
+
+            runner = CliRunner()
+            # Use the temp_dir as a topic
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir])
+            self.assertEqual(result.exit_code, 0, result.output)
+            
+            # send_files should be called with the file from the subdir 
+            # and a DirectoryMarker for the subdir
+            mock_client.return_value.send_files.assert_called_once()
+            args = mock_client.return_value.send_files.call_args
+            files_sent = list(args[0][1])
+            self.assertEqual(len(files_sent), 2)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_recursive_with_subfolder_announcement(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_get_topic(entity, title):
+            return 123
+        mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+
+        # Mock sync methods because telethon.sync is used
+        mock_client.return_value.send_message.return_value = MagicMock()
+        mock_client.return_value.pin_message.return_value = MagicMock()
+
+        # Create a temporary directory structure:
+        # temp_dir/
+        #   file_root.txt
+        #   subdir/
+        #     file_sub.txt
+        temp_dir = tempfile.mkdtemp()
+        try:
+            # Use fixed names to avoid order issues if needed, though we sort in code now
+            with open(os.path.join(temp_dir, 'file_root.txt'), 'w') as f:
+                f.write('root content')
+            
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            with open(os.path.join(sub_dir, 'file_sub.txt'), 'w') as f:
+                f.write('sub content')
+
+            runner = CliRunner()
+            # Use the temp_dir as a topic
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir])
+            self.assertEqual(result.exit_code, 0, result.output)
+
+            # send_files should be called once for the whole process
+            mock_client.return_value.send_files.assert_called_once()
+            args = mock_client.return_value.send_files.call_args
+            files_sent = list(args[0][1])
+
+            # Should have 2 files (file_root.txt and file_sub.txt) 
+            # and 1 DirectoryMarker for subdir
+            from telegram_upload.upload_files import DirectoryMarker
+
+            # Verify order: file_root.txt first, then DirectoryMarker, then file_sub.txt
+            file_names = []
+            for f in files_sent:
+                if isinstance(f, DirectoryMarker):
+                    file_names.append('DIR:' + f.file_name)
+                else:
+                    file_names.append(os.path.basename(f.path))
+
+            self.assertEqual(file_names, ['file_root.txt', 'DIR:subdir', 'file_sub.txt'])
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_folder_recursive(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_get_topic(entity, title):
+            return 123
+        mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+
+        # Create a temporary directory structure
+        temp_dir = tempfile.mkdtemp()
+        try:
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            test_file = os.path.join(sub_dir, 'file.txt')
+            with open(test_file, 'w') as f:
+                f.write('content')
+
+            runner = CliRunner()
+            # Use the temp_dir as a topic
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir])
+            self.assertEqual(result.exit_code, 0, result.output)
+            
+            # send_files should be called with the file from the subdir 
+            # and a DirectoryMarker for the subdir
+            mock_client.return_value.send_files.assert_called_once()
+            args = mock_client.return_value.send_files.call_args
+            files_sent = list(args[0][1])
+            self.assertEqual(len(files_sent), 2)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
     def test_exclusive(self, m1, m2):
         runner = CliRunner()
         result = runner.invoke(upload, ['missing_file.txt', '--thumbnail-file', 'cara128.png', '--no-thumbnail'])

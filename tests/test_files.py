@@ -27,21 +27,37 @@ class TestGetFileAttributes(unittest.TestCase):
 
 
 class TestRecursiveFiles(unittest.TestCase):
-    @patch('telegram_upload.upload_files.scantree', return_value=[])
     @patch('telegram_upload.upload_files.os.path.isdir', return_value=False)
-    def test_one_file(self, m1, m2):
+    def test_one_file(self, m1):
         self.assertEqual(list(RecursiveFiles(MagicMock(), ['foo'])), ['foo'])
 
-    @patch('telegram_upload.upload_files.scantree')
+    @patch('telegram_upload.upload_files.os.scandir')
     @patch('telegram_upload.upload_files.os.path.isdir', return_value=True)
     def test_directory(self, m1, m2):
-        directory = Mock()
-        directory.is_dir.side_effect = [True, False]
+        from telegram_upload.upload_files import DirectoryMarker
         file = Mock()
+        file.is_file.return_value = True
         file.is_dir.return_value = False
-        side_effect = [file] * 3
-        m2.return_value = side_effect
-        self.assertEqual(list(RecursiveFiles(MagicMock(), ['foo'])), [x.path for x in side_effect])
+        file.path = 'bar'
+        file.name = 'bar'
+        
+        subdir = Mock()
+        subdir.is_file.return_value = False
+        subdir.is_dir.return_value = True
+        subdir.path = 'subdir'
+        subdir.name = 'subdir'
+        
+        # When scanning 'foo', return [file, subdir]
+        # When scanning 'subdir', return []
+        m2.side_effect = [[file, subdir], []]
+        
+        results = list(RecursiveFiles(MagicMock(), ['foo']))
+        
+        # Order should be: file.path, DirectoryMarker(subdir)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0], 'bar')
+        self.assertTrue(isinstance(results[1], DirectoryMarker))
+        self.assertEqual(results[1].file_name, 'subdir')
 
 
 class TestNoDirectoriesFiles(unittest.TestCase):

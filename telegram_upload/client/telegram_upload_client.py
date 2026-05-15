@@ -145,10 +145,21 @@ class TelegramUploadClient(TelegramClient):
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
                    forward=(), send_as_media: bool = False, reply_to=None):
-        has_files = False
+        has_items = False
         messages = []
+        from telegram_upload.upload_files import DirectoryMarker
         for file in files:
-            has_files = True
+            has_items = True
+            if isinstance(file, DirectoryMarker):
+                if not send_as_media:
+                    # Send subfolder name and pin it
+                    msg = self.send_message(entity, f"📂 **{file.file_name}**", reply_to=reply_to)
+                    try:
+                        self.pin_message(entity, msg)
+                    except RPCError:
+                        # Might fail if not enough permissions
+                        pass
+                continue
             thumb = file.get_thumbnail()
             try:
                 message = self.send_one_file(entity, file, send_as_media, thumb=thumb, reply_to=reply_to)
@@ -166,7 +177,7 @@ class TelegramUploadClient(TelegramClient):
             if message:
                 self.forward_to(message, forward)
                 messages.append(message)
-        if not has_files:
+        if not has_items:
             raise MissingFileError('Files do not exist.')
         return messages
 

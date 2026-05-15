@@ -98,18 +98,36 @@ class UploadFilesBase:
         return next(self._iterator)
 
 
+class DirectoryMarker:
+    def __init__(self, path):
+        self.path = path
+        self.file_name = os.path.basename(path)
+
+
 class RecursiveFiles(UploadFilesBase):
 
     def get_iterator(self):
         for file in self.files:
             if os.path.isdir(file):
-                yield from map(lambda file: file.path,
-                               filter(lambda x: not x.is_dir(), scantree(file, True)))
+                yield from self._recursive_worker(file)
             else:
                 yield file
 
+    def _recursive_worker(self, path):
+        # Send files first
+        entries = sorted(list(os.scandir(path)), key=lambda x: x.name)
+        for entry in entries:
+            if entry.is_file():
+                yield entry.path
+        # Then subdirectories
+        for entry in entries:
+            if entry.is_dir():
+                yield DirectoryMarker(entry.path)
+                yield from self._recursive_worker(entry.path)
+
 
 class NoDirectoriesFiles(UploadFilesBase):
+
     def get_iterator(self):
         for file in self.files:
             if os.path.isdir(file):
@@ -121,6 +139,9 @@ class NoDirectoriesFiles(UploadFilesBase):
 class LargeFilesBase(UploadFilesBase):
     def get_iterator(self):
         for file in self.files:
+            if isinstance(file, DirectoryMarker):
+                yield file
+                continue
             if os.path.getsize(file) > self.client.max_file_size:
                 yield from self.process_large_file(file)
             else:

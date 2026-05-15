@@ -274,8 +274,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                 top = async_to_sync(client.get_or_create_topic(t, top_name))
                 if not f:
                     # Pick files from folder
-                    paths = [os.path.join(top_path, x) for x in os.listdir(top_path)
-                             if os.path.isfile(os.path.join(top_path, x))]
+                    paths = [top_path]
             elif top and not str(top).isdigit():
                 top = async_to_sync(client.get_or_create_topic(t, top))
             elif top:
