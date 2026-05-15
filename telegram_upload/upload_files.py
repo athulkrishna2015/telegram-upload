@@ -28,7 +28,7 @@ def is_valid_file(file, error_logger=None):
     error_message = None
     if not os.path.lexists(file):
         error_message = 'File "{}" does not exist.'.format(file)
-    elif not os.path.getsize(file):
+    elif not os.path.isdir(file) and not os.path.getsize(file):
         error_message = 'File "{}" is empty.'.format(file)
     if error_message and error_logger is not None:
         error_logger(error_message)

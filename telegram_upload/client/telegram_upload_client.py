@@ -39,7 +39,14 @@ class TelegramUploadClient(TelegramClient):
             return self
         if not self._sender_pool:
             for _ in range(MAX_CONNECTIONS - 1):
-                sender = await self._borrow_exported_sender(self.session.dc_id)
+                try:
+                    sender = await self._borrow_exported_sender(self.session.dc_id)
+                except RPCError as e:
+                    if 'ExportAuthorizationRequest' in str(e):
+                        # Cannot export to same DC, just use self for this slot
+                        sender = self
+                    else:
+                        raise
                 self._sender_pool.append(sender)
             self._sender_pool.append(self)
 

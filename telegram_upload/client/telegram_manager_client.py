@@ -11,11 +11,12 @@ from telethon import functions
 from telethon.errors import ApiIdInvalidError, RPCError
 from telethon.network import ConnectionTcpMTProxyRandomizedIntermediate
 from telethon.tl.types import DocumentAttributeFilename, User, InputPeerUser
+from telethon.sessions import StringSession
 from telethon.version import __version__ as telethon_version
 
 from telegram_upload.client.telegram_download_client import TelegramDownloadClient
 from telegram_upload.client.telegram_upload_client import TelegramUploadClient
-from telegram_upload.config import SESSION_FILE
+from telegram_upload.config import SESSION_FILE, SESSION_STRING
 from telegram_upload.exceptions import TelegramProxyError, InvalidApiFileError
 
 if int(telethon_version[0]) >= 1:
@@ -92,7 +93,10 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
         if proxy and proxy[0] == 'mtproxy':
             proxy = proxy[1:]
             kwargs['connection'] = ConnectionTcpMTProxyRandomizedIntermediate
-        super().__init__(config.get('session', SESSION_FILE), config['api_id'], config['api_hash'],
+        session = SESSION_STRING or config.get('session', SESSION_FILE)
+        if session and isinstance(session, str) and not session.endswith('.session') and len(session) > 50:
+            session = StringSession(session)
+        super().__init__(session, config['api_id'], config['api_hash'],
                          proxy=proxy, **kwargs)
 
     def start(
@@ -131,10 +135,10 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
     async def get_or_create_topic(self, entity, title):
         entity = await self.get_input_entity(entity)
         # Search for existing topic
-        result = await self(functions.channels.GetForumTopicsRequest(
-            channel=entity,
-            query=title,
-            offset_date=0,
+        result = await self(functions.messages.GetForumTopicsRequest(
+            peer=entity,
+            q=title,
+            offset_date=None,
             offset_id=0,
             offset_topic=0,
             limit=100
@@ -145,8 +149,8 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
 
         # Create new topic if not found
         try:
-            result = await self(functions.channels.CreateForumTopicRequest(
-                channel=entity,
+            result = await self(functions.messages.CreateForumTopicRequest(
+                peer=entity,
                 title=title
             ))
             # The result contains the topic ID in the updates

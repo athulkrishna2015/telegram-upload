@@ -35,6 +35,12 @@ DOWNLOAD_SPLIT_FILE_MODES = {
 }
 
 
+def ensure_int_entity(entity):
+    if isinstance(entity, str) and entity.lstrip("-+").isdigit():
+        return int(entity)
+    return entity
+
+
 def get_file_display_name(message):
     display_name_parts = []
     is_document = message.document
@@ -201,20 +207,22 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     raw_destinations = []
     if not topic:
         for t in to:
-            raw_destinations.append((t, None))
+            raw_destinations.append((ensure_int_entity(t), None))
     elif len(to) == 1:
+        t_id = ensure_int_entity(to[0])
         for t in topic:
-            raw_destinations.append((to[0], t))
+            raw_destinations.append((t_id, t))
     elif len(topic) % len(to) == 0:
         topics_per_group = len(topic) // len(to)
         for i, t in enumerate(to):
+            t_id = ensure_int_entity(t)
             for top in topic[i * topics_per_group: (i + 1) * topics_per_group]:
-                raw_destinations.append((t, top))
+                raw_destinations.append((t_id, top))
     elif len(to) % len(topic) == 0:
         groups_per_topic = len(to) // len(topic)
         for i, top in enumerate(topic):
             for t in to[i * groups_per_topic: (i + 1) * groups_per_topic]:
-                raw_destinations.append((t, top))
+                raw_destinations.append((ensure_int_entity(t), top))
     else:
         raise click.UsageError('The number of --to and --topic arguments must be multiples '
                               'of each other (e.g. 2 groups for 4 topics).')
@@ -336,29 +344,28 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
     destinations = []
     if not topic:
         for f in from_:
-            destinations.append((f, None))
+            destinations.append((ensure_int_entity(f), None))
     elif len(from_) == 1:
+        f_id = ensure_int_entity(from_[0])
         for t in topic:
-            destinations.append((from_[0], t))
+            destinations.append((f_id, t))
     elif len(topic) % len(from_) == 0:
         topics_per_group = len(topic) // len(from_)
         for i, f in enumerate(from_):
+            f_id = ensure_int_entity(f)
             for t in topic[i * topics_per_group: (i + 1) * topics_per_group]:
-                destinations.append((f, t))
+                destinations.append((f_id, t))
     elif len(from_) % len(topic) == 0:
         groups_per_topic = len(from_) // len(topic)
         for i, t in enumerate(topic):
             for f in from_[i * groups_per_topic: (i + 1) * groups_per_topic]:
-                destinations.append((f, t))
+                destinations.append((ensure_int_entity(f), t))
     else:
         raise click.UsageError('The number of --from and --topic arguments must be multiples '
                               'of each other (e.g. 2 groups for 4 topics).')
 
     messages = []
     for dest, top in destinations:
-        if isinstance(dest, str) and dest.lstrip("-+").isdigit():
-            dest = int(dest)
-        
         if top and not str(top).isdigit():
             top = async_to_sync(client.get_or_create_topic(dest, top))
         elif top:
@@ -373,7 +380,7 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
 
     messages_cls = DOWNLOAD_SPLIT_FILE_MODES[split_files]
     download_files = messages_cls(reversed(list(messages)))
-    client.download_files(from_[0] if from_ else 'me', download_files, delete_on_success)
+    client.download_files(ensure_int_entity(from_[0]) if from_ else 'me', download_files, delete_on_success)
 
 
 upload_cli = catch(upload)
