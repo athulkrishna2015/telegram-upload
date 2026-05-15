@@ -144,8 +144,10 @@ class MutuallyExclusiveOption(click.Option):
 @click.option('--sort', is_flag=True,
               help='Sort files by name before upload it. Install the natsort Python package for natural sorting.')
 @click.option('--topic', '-t', multiple=True, type=int, help='Topic ID to upload the file to.')
+@click.option('--distribute', is_flag=True,
+              help='Distribute files among destinations instead of broadcasting all files to all destinations.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, large_files, caption,
-           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic):
+           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
@@ -203,24 +205,34 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         files = sorted(files, key=lambda x: x.name)
 
     files = list(files)
+    if distribute:
+        if len(files) % len(destinations) != 0:
+            raise click.UsageError('Number of files must be a multiple of the number of destinations '
+                                  'when using --distribute.')
+        chunk_size = len(files) // len(destinations)
+        file_groups = [files[i:i + chunk_size] for i in range(0, len(files), chunk_size)]
+    else:
+        file_groups = [files] * len(destinations)
+
     for i, (dest, top) in enumerate(destinations):
-        if i > 0:
-            for f in files:
+        current_files = file_groups[i]
+        if i > 0 and not distribute:
+            for f in current_files:
                 if hasattr(f, 'seek'):
                     f.seek(0)
                 if hasattr(f, 'remaining_size') and hasattr(f, 'max_read_size'):
                     f.remaining_size = f.max_read_size
 
-        # Only delete on success if it's the last destination
-        delete = delete_on_success and i == len(destinations) - 1
+        # Only delete on success if it's the last destination or in distribute mode
+        delete = delete_on_success and (distribute or i == len(destinations) - 1)
 
         if isinstance(dest, str) and dest.lstrip("-+").isdigit():
             dest = int(dest)
 
         if album:
-            client.send_files_as_album(dest, files, delete, print_file_id, forward, reply_to=top)
+            client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top)
         else:
-            client.send_files(dest, files, delete, print_file_id, forward, reply_to=top)
+            client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top)
 
 
 @click.command()

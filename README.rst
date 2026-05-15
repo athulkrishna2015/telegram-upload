@@ -124,6 +124,13 @@ Telegram-upload supports **multiple destinations** in a single command. You can 
     # Send to different groups
     $ telegram-upload --to group1 --to group2 file.zip
 
+You can also **distribute** different files to different topics using the ``--distribute`` flag. This will divide the files among the destinations:
+
+.. code-block:: console
+
+    # Send file1.zip to Topic 1 and file2.zip to Topic 2
+    $ telegram-upload --to my_group -t 1 -t 2 --distribute file1.zip file2.zip
+
 You can see all `the possible values for the entity in the documentation <https://docs.nekmo.org/telegram-upload/usage.html#set-recipient-or-sender>`_.
 
 Performance & Speed
