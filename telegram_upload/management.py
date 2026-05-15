@@ -152,14 +152,20 @@ class MutuallyExclusiveOption(click.Option):
 @click.option('--topic', '-t', multiple=True, help='Topic ID, name or folder path to upload the file to.')
 @click.option('--distribute', is_flag=True,
               help='Distribute files among destinations instead of broadcasting all files to all destinations.')
+@click.option('--skip', '-s', is_flag=True,
+              help='Skip already uploaded files in the chat (channel, topic or group).')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, recursive, large_files, caption,
-           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute):
+           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute, skip):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
     """
     if recursive:
         directories = 'recursive'
+    for t in topic:
+        if os.path.isfile(str(t)):
+            click.confirm(f'The topic "{t}" is a file path. Are you sure you want to '
+                          f'use it as a topic name?', abort=True)
     client = TelegramManagerClient(config or default_config(), proxy=proxy)
     client.start()
     if interactive and not files:
@@ -275,6 +281,8 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                 if not f:
                     # Pick files from folder
                     paths = [top_path]
+                    if directories == 'fail':
+                        directories = 'recursive'
             elif top and not str(top).isdigit():
                 top = async_to_sync(client.get_or_create_topic(t, top))
             elif top:
@@ -311,9 +319,9 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
             dest = int(dest)
 
         if album:
-            client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top)
+            client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip)
         else:
-            client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top)
+            client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip)
 
 
 @click.command()

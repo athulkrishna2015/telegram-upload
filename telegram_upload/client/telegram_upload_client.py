@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import os
 import time
 from typing import Iterable, Optional
@@ -12,6 +13,7 @@ from telethon.tl import types, functions, TLRequest
 from telethon.utils import pack_bot_file_id
 
 from telegram_upload.client.progress_bar import get_progress_bar
+from telegram_upload.config import CONFIG_DIRECTORY
 from telegram_upload.exceptions import TelegramUploadDataLoss, MissingFileError
 from telegram_upload.upload_files import File
 from telegram_upload.utils import grouper, async_to_sync, get_environment_integer
@@ -23,6 +25,61 @@ MAX_RECONNECT_RETRIES = get_environment_integer('TELEGRAM_UPLOAD_MAX_RECONNECT_R
 RECONNECT_TIMEOUT = get_environment_integer('TELEGRAM_UPLOAD_RECONNECT_TIMEOUT', 5)
 MIN_RECONNECT_WAIT = get_environment_integer('TELEGRAM_UPLOAD_MIN_RECONNECT_WAIT', 2)
 MAX_CONNECTIONS = get_environment_integer('TELEGRAM_UPLOAD_MAX_CONNECTIONS', 1)
+
+
+class Progress:
+    def __init__(self, file_path, file_size):
+        self.file_path = os.path.abspath(file_path)
+        self.file_size = file_size
+        self.parts = set()
+        self.file_id = int.from_bytes(
+            hashlib.sha256(f"{self.file_path}|{self.file_size}|{os.path.getmtime(self.file_path)}".encode()).digest()[:8],
+            'little', signed=True
+        )
+
+    def is_part_uploaded(self, part_index):
+        return part_index in self.parts
+
+    def mark_part_uploaded(self, part_index):
+        self.parts.add(part_index)
+
+
+class ProgressManager:
+    def __init__(self, cache_file):
+        self.cache_file = cache_file
+        self.data = {}
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, 'r') as f:
+                    self.data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+
+    def get_progress(self, file_path, file_size):
+        key = f"{os.path.abspath(file_path)}|{file_size}"
+        if key not in self.data:
+            return Progress(file_path, file_size)
+        progress = Progress(file_path, file_size)
+        progress.parts = set(self.data[key].get('parts', []))
+        progress.file_id = self.data[key].get('file_id', progress.file_id)
+        return progress
+
+    def save_progress(self, progress):
+        key = f"{progress.file_path}|{progress.file_size}"
+        self.data[key] = {
+            'file_id': progress.file_id,
+            'parts': list(progress.parts)
+        }
+        os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
+        with open(self.cache_file, 'w') as f:
+            json.dump(self.data, f)
+
+    def remove_progress(self, progress):
+        key = f"{progress.file_path}|{progress.file_size}"
+        if key in self.data:
+            del self.data[key]
+            with open(self.cache_file, 'w') as f:
+                json.dump(self.data, f)
 
 
 class TelegramUploadClient(TelegramClient):
@@ -73,11 +130,12 @@ class TelegramUploadClient(TelegramClient):
         return self._get_response_message(random_ids, result, entity)
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
-                            forward=(), reply_to=None):
+                            forward=(), reply_to=None, skip=False):
         for files_group in grouper(ALBUM_FILES, files):
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
-                                    reply_to=reply_to)
-            async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
+                                    reply_to=reply_to, skip=skip)
+            if media:
+                async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
 
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         message = self.send_file(entity, file, thumb=thumb,
@@ -144,9 +202,14 @@ class TelegramUploadClient(TelegramClient):
         return message
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
-                   forward=(), send_as_media: bool = False, reply_to=None):
+                   forward=(), send_as_media: bool = False, reply_to=None, skip=False):
         has_items = False
         messages = []
+        if skip:
+            existing_files = {(m.file.name, m.file.size) for m in async_to_sync(self.iter_files_list(entity, reply_to))}
+        else:
+            existing_files = set()
+
         from telegram_upload.upload_files import DirectoryMarker
         for file in files:
             has_items = True
@@ -159,6 +222,9 @@ class TelegramUploadClient(TelegramClient):
                     except RPCError:
                         # Might fail if not enough permissions
                         pass
+                continue
+            if skip and (file.file_name, file.file_size) in existing_files:
+                click.echo(f'Skipping "{file.file_name}" as it is already uploaded.')
                 continue
             thumb = file.get_thumbnail()
             try:
@@ -276,9 +342,18 @@ class TelegramUploadClient(TelegramClient):
         if isinstance(file, (types.InputFile, types.InputFileBig)):
             return file  # Already uploaded
 
+        progress_manager = ProgressManager(os.path.expanduser(f'{CONFIG_DIRECTORY}/telegram-upload-progress.json'))
+        progress = None
+
         async with helpers._FileStream(file, file_size=file_size) as stream:
             # Opening the stream will determine the correct file size
             file_size = stream.file_size
+
+            if hasattr(file, 'path'):
+                progress = progress_manager.get_progress(file.path, file_size)
+                file_id = progress.file_id
+            else:
+                file_id = helpers.generate_random_long()
 
             if not part_size_kb:
                 part_size_kb = utils.get_appropriated_part_size(file_size)
@@ -292,7 +367,6 @@ class TelegramUploadClient(TelegramClient):
                     'The part size must be evenly divisible by 1024')
 
             # Set a default file name if None was specified
-            file_id = helpers.generate_random_long()
             if not file_name:
                 file_name = stream.name or str(file_id)
 
@@ -313,6 +387,13 @@ class TelegramUploadClient(TelegramClient):
 
             pos = 0
             for part_index in range(part_count):
+                if progress and progress.is_part_uploaded(part_index):
+                    part = await helpers._maybe_await(stream.read(part_size))
+                    pos += len(part)
+                    if progress_callback:
+                        await helpers._maybe_await(progress_callback(pos, file_size))
+                    continue
+
                 # Read the file by in chunks of size part_size
                 part = await helpers._maybe_await(stream.read(part_size))
 
@@ -351,7 +432,7 @@ class TelegramUploadClient(TelegramClient):
                 sender = await self._get_sender()
                 self.loop.create_task(
                     self._send_file_part(request, part_index, part_count, pos, file_size, progress_callback,
-                                         sender=sender),
+                                         sender=sender, progress_manager=progress_manager, progress=progress),
                     name=f"telegram-upload-file-{part_index}"
                 )
 
@@ -359,6 +440,8 @@ class TelegramUploadClient(TelegramClient):
             await asyncio.wait([
                 task for task in asyncio.all_tasks() if task.get_name().startswith(f"telegram-upload-file-")
             ])
+        if progress:
+            progress_manager.remove_progress(progress)
         if is_big:
             return types.InputFileBig(file_id, part_count, file_name)
         else:
@@ -370,7 +453,7 @@ class TelegramUploadClient(TelegramClient):
 
     async def _send_file_part(self, request: TLRequest, part_index: int, part_count: int, pos: int, file_size: int,
                               progress_callback: Optional['hints.ProgressCallback'] = None, retry: int = 0,
-                              sender=None) -> None:
+                              sender=None, progress_manager=None, progress=None) -> None:
         """
         Submit the file request part to Telegram. This method waits for the request to be executed, logs the upload,
         and releases the semaphore to allow further uploading.
@@ -394,22 +477,28 @@ class TelegramUploadClient(TelegramClient):
                 click.echo(f'Too many connections to Telegram servers.', err=True)
             else:
                 raise
-        except ConnectionError:
+        except (ConnectionError, asyncio.TimeoutError):
             # Retry to send the file part
             click.echo(f'Detected connection error. Retrying...', err=True)
         else:
             self.upload_semaphore.release()
-        if result is None and retry < MAX_RECONNECT_RETRIES:
+        if result is None:
             # An error occurred, retry
             await asyncio.sleep(max(MIN_RECONNECT_WAIT, retry * MIN_RECONNECT_WAIT))
-            await self.reconnect()
+            try:
+                await self.reconnect()
+            except Exception:
+                pass
             await self._send_file_part(
                 request, part_index, part_count, pos, file_size, progress_callback, retry + 1,
-                sender=sender
+                sender=sender, progress_manager=progress_manager, progress=progress
             )
         elif result:
             self._log[__name__].debug('Uploaded %d/%d',
                                       part_index + 1, part_count)
+            if progress:
+                progress.mark_part_uploaded(part_index)
+                progress_manager.save_progress(progress)
             if progress_callback:
                 await helpers._maybe_await(progress_callback(pos, file_size))
         else:

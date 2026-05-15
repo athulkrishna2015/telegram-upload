@@ -38,6 +38,9 @@ class TelegramDownloadClient(TelegramClient):
             if message.document:
                 yield message
 
+    async def iter_files_list(self, entity, reply_to=None):
+        return [m async for m in self.iter_files(entity, reply_to=reply_to)]
+
     def download_files(self, entity, download_files: Iterable[DownloadFile], delete_on_success: bool = False):
         for download_file in download_files:
             if download_file.size > free_disk_usage():

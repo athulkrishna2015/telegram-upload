@@ -72,7 +72,7 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         mock_files = [MagicMock(), MagicMock()]
         self.client.send_files_as_album(entity, mock_files)
         mock_send_files.assert_called_once_with(
-            entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None
+            entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False
         )
         mock_send_album_media.assert_called_once_with(entity, mock_send_files.return_value, reply_to=None)
 
