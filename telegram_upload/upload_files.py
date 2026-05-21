@@ -60,10 +60,13 @@ def get_file_attributes(file):
             video_meta = meta_groups[next(filter(lambda x: x.startswith('video'), meta_groups._key_list))]
         if metadata is not None:
             supports_streaming = isinstance(video_meta, MP4Metadata)
+            duration = metadata.get('duration').seconds if metadata_has(metadata, 'duration') else 0
+            width = video_meta.get('width') if metadata_has(video_meta, 'width') else 0
+            height = video_meta.get('height') if metadata_has(video_meta, 'height') else 0
             attrs.append(DocumentAttributeVideo(
-                (0, metadata.get('duration').seconds)[metadata_has(metadata, 'duration')],
-                (0, video_meta.get('width'))[metadata_has(video_meta, 'width')],
-                (0, video_meta.get('height'))[metadata_has(video_meta, 'height')],
+                duration,
+                width,
+                height,
                 False,
                 supports_streaming,
             ))
