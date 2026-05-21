@@ -119,7 +119,7 @@ class TelegramUploadClient(TelegramClient):
     async def _send_album_media(self, entity, media, reply_to=None):
         entity = await self.get_input_entity(entity)
         if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
-            reply_to = types.InputReplyToMessage(reply_to)
+            reply_to = types.InputReplyToMessage(reply_to_msg_id=reply_to, top_msg_id=reply_to)
         request = functions.messages.SendMultiMediaRequest(
             entity, multi_media=media, silent=None, schedule_date=None, clear_draft=None,
             reply_to=reply_to
@@ -138,6 +138,8 @@ class TelegramUploadClient(TelegramClient):
                 async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
 
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
+        if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
+            reply_to = types.InputReplyToMessage(reply_to_msg_id=reply_to, top_msg_id=reply_to)
         message = self.send_file(entity, file, thumb=thumb,
                                  file_size=file.file_size if isinstance(file, File) else None,
                                  caption=file.file_caption, force_document=file.force_file,
@@ -216,7 +218,11 @@ class TelegramUploadClient(TelegramClient):
             if isinstance(file, DirectoryMarker):
                 if not send_as_media:
                     # Send subfolder name and pin it
-                    msg = self.send_message(entity, f"📂 **{file.file_name}**", reply_to=reply_to)
+                    wrapped_reply_to = reply_to
+                    if wrapped_reply_to and not isinstance(wrapped_reply_to, types.InputReplyToMessage):
+                        wrapped_reply_to = types.InputReplyToMessage(reply_to_msg_id=wrapped_reply_to,
+                                                                     top_msg_id=wrapped_reply_to)
+                    msg = self.send_message(entity, f"📂 **{file.file_name}**", reply_to=wrapped_reply_to)
                     try:
                         self.pin_message(entity, msg)
                     except RPCError:
