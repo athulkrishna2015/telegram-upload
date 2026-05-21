@@ -52,6 +52,10 @@ class TestUpload(unittest.TestCase):
             return 123
         mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
         
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
+        
         test_file1 = os.path.join(directory, 'file1.txt')
         test_file2 = os.path.join(directory, 'file2.txt')
         runner = CliRunner()
@@ -69,6 +73,10 @@ class TestUpload(unittest.TestCase):
         async def mock_get_topic(entity, title):
             return int(title) if str(title).isdigit() else 123
         mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
 
         test_file1 = os.path.join(directory, 'file1.txt')
         test_file2 = os.path.join(directory, 'file2.txt')
@@ -106,6 +114,10 @@ class TestUpload(unittest.TestCase):
         async def mock_get_topic(entity, title):
             return 123
         mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+        
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
 
         # Create a temporary directory structure
         temp_dir = tempfile.mkdtemp()
@@ -141,6 +153,10 @@ class TestUpload(unittest.TestCase):
         async def mock_get_topic(entity, title):
             return 123
         mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+        
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
 
         # Mock sync methods because telethon.sync is used
         mock_client.return_value.send_message.return_value = MagicMock()
@@ -199,6 +215,10 @@ class TestUpload(unittest.TestCase):
         async def mock_get_topic(entity, title):
             return 123
         mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+        
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
 
         # Create a temporary directory structure
         temp_dir = tempfile.mkdtemp()
@@ -230,6 +250,22 @@ class TestUpload(unittest.TestCase):
         result = runner.invoke(upload, ['missing_file.txt', '--thumbnail-file', 'cara128.png', '--no-thumbnail'])
         self.assertEqual(result.exit_code, 2)
         m1.return_value.send_files.assert_not_called()
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_not_found_warning(self, mock_client: MagicMock, _: MagicMock):
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_check_topic(entity, topic_id):
+            return False
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
+
+        test_file = os.path.join(directory, 'file1.txt')
+        runner = CliRunner()
+        result = runner.invoke(upload, ['--to', 'me', '--topic', '15199', test_file])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn('Warning: Topic ID 15199 not found', result.output)
 
 
 class TestDownload(unittest.TestCase):

@@ -236,6 +236,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     if distribute:
         # Equal distribution
         destinations = []
+        verified_topics = set()
         for t, top in raw_destinations:
             if top and os.path.isdir(str(top)):
                 top_name = os.path.basename(str(top).rstrip('/\\'))
@@ -244,6 +245,11 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                 top = async_to_sync(client.get_or_create_topic(t, top))
             elif top:
                 top = int(top)
+                if (t, top) not in verified_topics:
+                    if not async_to_sync(client.check_topic_exists(t, top)):
+                        click.echo(f'Warning: Topic ID {top} not found in {t}. '
+                                   f'Upload may end up in General thread.', err=True)
+                    verified_topics.add((t, top))
             destinations.append((t, top))
 
         all_files = wrap_files(files)
@@ -272,6 +278,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
             # Single destination with topic
             target_files = [','.join(files)] if files else [None]
 
+        verified_topics = set()
         for (t, top), f in zip(raw_destinations, target_files):
             paths = []
             if top and os.path.isdir(str(top)):
@@ -287,6 +294,11 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                 top = async_to_sync(client.get_or_create_topic(t, top))
             elif top:
                 top = int(top)
+                if (t, top) not in verified_topics:
+                    if not async_to_sync(client.check_topic_exists(t, top)):
+                        click.echo(f'Warning: Topic ID {top} not found in {t}. '
+                                   f'Upload may end up in General thread.', err=True)
+                    verified_topics.add((t, top))
 
             if f:
                 paths.extend(f.split(','))

@@ -160,3 +160,15 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
         except RPCError as e:
             click.echo(f'Could not create topic "{title}": {e}', err=True)
             return None
+
+    async def check_topic_exists(self, entity, topic_id):
+        entity = await self.get_input_entity(entity)
+        try:
+            # Check if topic exists by its ID
+            result = await self(functions.messages.GetForumTopicsByIDRequest(
+                peer=entity,
+                topics=[topic_id]
+            ))
+            return len(result.topics) > 0
+        except RPCError:
+            return False
