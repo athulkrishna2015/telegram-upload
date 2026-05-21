@@ -140,16 +140,48 @@ class TelegramUploadClient(TelegramClient):
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
             reply_to = types.InputReplyToMessage(reply_to_msg_id=reply_to, top_msg_id=reply_to)
-        message = self.send_file(entity, file, thumb=thumb,
-                                 file_size=file.file_size if isinstance(file, File) else None,
-                                 caption=file.file_caption, force_document=file.force_file,
-                                 progress_callback=progress, attributes=file.file_attributes,
-                                 reply_to=reply_to)
+
+        if reply_to:
+            # Use low-level API to support forum topics (top_msg_id)
+            message = async_to_sync(self._send_file_low_level(entity, file, thumb, progress, reply_to))
+        else:
+            message = self.send_file(entity, file, thumb=thumb,
+                                     file_size=file.file_size if isinstance(file, File) else None,
+                                     caption=file.file_caption, force_document=file.force_file,
+                                     progress_callback=progress, attributes=file.file_attributes,
+                                     reply_to=reply_to)
         if hasattr(message.media, 'document') and file.file_size != message.media.document.size:
             raise TelegramUploadDataLoss(
                 'Remote document size: {} bytes (local file size: {} bytes)'.format(
                     message.media.document.size, file.file_size))
         return message
+
+    async def _send_file_low_level(self, entity, file: File, thumb, progress, reply_to):
+        entity = await self.get_input_entity(entity)
+        fh, fm, _ = await self._file_to_media(
+            file, thumb=thumb, force_document=file.force_file,
+            progress_callback=progress, attributes=file.file_attributes
+        )
+        if isinstance(fm, types.InputMediaUploadedPhoto):
+            r = await self(functions.messages.UploadMediaRequest(
+                entity, media=fm
+            ))
+            fm = utils.get_input_media(r.photo)
+        elif isinstance(fm, types.InputMediaUploadedDocument):
+            r = await self(functions.messages.UploadMediaRequest(
+                entity, media=fm
+            ))
+            fm = utils.get_input_media(r.document)
+
+        request = functions.messages.SendMediaRequest(
+            peer=entity,
+            media=fm,
+            message=file.file_caption,
+            random_id=helpers.generate_random_long(),
+            reply_to=reply_to,
+        )
+        result = await self(request)
+        return self._get_response_message(request.random_id, result, entity)
 
     async def _send_media(self, entity, file: File, progress):
         entity = await self.get_input_entity(entity)
