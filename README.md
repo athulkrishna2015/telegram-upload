@@ -198,20 +198,92 @@ The `--delete-on-success` option allows you to ❌ **delete the Telegram message
 
 Credentials are saved in `~/.config/telegram-upload.json` and `~/.config/telegram-upload.session`. You must make sure that these files are secured. You can copy these 📁 files to authenticate `telegram-upload` on more machines, but it is advisable to create a session file for each machine.
 
-### More options
+### Upload albums
 
-Telegram-upload has more options available, like customizing the files thumbnail, set a caption message (including variables) or configuring a proxy.
-[Read the documentation](https://docs.nekmo.org/telegram-upload/usage.html#telegram-download) for more info.
+The `--album` (or `-a`) flag groups photos and videos into albums of up to **10 items**. Each item gets its own **full filename as caption**:
+
+```console
+$ telegram-upload --album -r --skip /path/to/folder
+```
+
+Notes:
+
+* Folder `📂` announcements are skipped in album mode.
+* Per-item captions are visible when opening a photo individually, not in the album grid (Telegram UI behavior).
+* Captions are message text, so in-chat search by filename finds the item.
+
+### Captions
+
+Use `--caption` to override the default caption (the filename without extension). Templates support file variables, for example `{file.stem}`:
+
+```console
+$ telegram-upload --caption "Backup {file.stem}" file1.mp4
+```
+
+### Full option reference
+
+`telegram-upload [OPTIONS] [FILES]...`
+
+| Option | Description |
+|---|---|
+| `--to TEXT` | Destination: phone, username, invite link, chat id, or `me` (default). Repeatable. |
+| `--config TEXT` | Config file (default `~/.config/telegram-upload.json`). |
+| `-d, --delete-on-success` | Delete the local file after a successful upload. |
+| `--print-file-id` | Print the uploaded file's id. |
+| `--force-file` | Always send as a file (keeps filename, no preview). |
+| `-f, --forward TEXT` | Forward each upload to another chat/user. Repeatable. |
+| `--directories [fail\|recursive]` | How to handle directories (default `fail`). |
+| `-r, --recursive` | Upload directories recursively (sets `--directories recursive`). |
+| `--large-files [fail\|split]` | How to handle files over the Telegram limit (default `fail`). |
+| `--caption TEXT` | Caption template (supports `{file.*}` variables). Default: filename. |
+| `--no-thumbnail` | Disable thumbnail generation (mutually exclusive with `--thumbnail-file`). |
+| `--thumbnail-file TEXT` | Custom preview image for uploads. |
+| `-p, --proxy TEXT` | `http`, `socks4`, `socks5` or `mtproto` proxy, e.g. `socks5://user:pass@1.2.3.4:8080`. |
+| `-a, --album` | Group photos/videos into albums of up to 10, each captioned with its filename. |
+| `-i, --interactive` | Terminal wizard to pick files and destination (mouse supported). |
+| `--sort` | Sort files by name (natural sort if `natsort` is installed). |
+| `-t, --topic TEXT` | Forum topic id, name, or folder path. Repeatable; pairs with `--to` and positional files. |
+| `--distribute` | Split files across destinations instead of sending all files everywhere. |
+| `-s, --skip` | Skip files whose name and size already exist in the destination. |
+
+`telegram-download [OPTIONS]`
+
+| Option | Description |
+|---|---|
+| `-f, --from TEXT` | Source: phone, username, chat id, or `me` (default). Repeatable. |
+| `--config TEXT` | Config file (default `~/.config/telegram-upload.json`). |
+| `-d, --delete-on-success` | Delete the Telegram message after downloading (download queue). |
+| `-p, --proxy TEXT` | Same proxy format as upload. |
+| `-m, --split-files [keep\|join]` | Rejoin files previously uploaded with `--large-files split` (default `keep`). |
+| `-i, --interactive` | Terminal wizard to pick source and files. |
+| `-t, --topic TEXT` | Topic id or name to download from. Repeatable. |
+
+Environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS` | `8` | File chunks uploaded in parallel. |
+| `TELEGRAM_UPLOAD_MAX_CONNECTIONS` | `1` | Parallel TCP connections (speed boost; too many can trigger Flood Wait). |
+| `TELEGRAM_UPLOAD_MAX_RECONNECT_RETRIES` | `5` | Reconnect attempts on connection errors. |
+| `TELEGRAM_UPLOAD_RECONNECT_TIMEOUT` | `5` | Timeout between reconnect attempts. |
+| `TELEGRAM_UPLOAD_MIN_RECONNECT_WAIT` | `2` | Minimum wait before retrying a failed part. |
+| `TELEGRAM_UPLOAD_PARALLEL_DOWNLOAD_BLOCKS` | `10` | Download chunks fetched in parallel. |
+| `TELEGRAM_UPLOAD_PROXY` (`HTTPS_PROXY`, `HTTP_PROXY`) | — | Proxy fallback chain. |
+| `TELEGRAM_UPLOAD_SESSION` | — | Session string override (instead of the session file). |
+| `TELEGRAM_UPLOAD_CONFIG_DIRECTORY` | `~/.config` | Directory holding the config and session files. |
 
 ## 💡 Features
 
-* **Upload** and **download** multiples files (up to 4 GiB per file for premium users).
+* **Upload** and **download** multiple files (up to 4 GiB per file for premium users).
 * **Interactive** mode.
-* Add video **thumbs**.
+* **Topics**: upload/download in forum topics, auto-create topics from folder names.
+* **Albums** of up to 10 photos/videos, each captioned with its filename.
+* **Skip** already-uploaded files; **resume** interrupted uploads; network retries.
+* Add video **thumbs** (or custom thumbnails).
 * **Split** and **join** large files.
 * **Delete** local or remote file on success.
 * Use **variables** in the **caption** message.
-* ... And **more**.
+* Proxy support and parallel-connection speed boost.
 
 ## 🐋 Docker
 
