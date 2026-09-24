@@ -78,16 +78,17 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
 
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient.send_files')
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_album_media')
-    def test_send_files_as_album_falls_back_on_media_empty(self, mock_send_album_media: MagicMock,
-                                                           mock_send_files: MagicMock):
+    @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_media_individually')
+    def test_send_files_as_album_falls_back_on_media_empty(self, mock_send_media_individually,
+                                                           mock_send_album_media, mock_send_files):
         entity = "entity"
         mock_files = [MagicMock(), MagicMock()]
-        mock_send_files.return_value = [MagicMock()]
+        media = [MagicMock()]
+        mock_send_files.return_value = media
         mock_send_album_media.side_effect = MediaEmptyError(None)
         self.client.send_files_as_album(entity, mock_files)
-        self.assertEqual(2, mock_send_files.call_count)
-        fallback_call = mock_send_files.call_args_list[1]
-        self.assertNotIn('send_as_media', fallback_call.kwargs)
+        mock_send_files.assert_called_once()
+        mock_send_media_individually.assert_called_once_with(entity, media, reply_to=None)
 
     @patch('telegram_upload.management.default_config')
     def test_missing_file(self, m1):
