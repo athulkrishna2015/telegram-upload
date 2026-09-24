@@ -144,39 +144,26 @@ class TelegramUploadClient(TelegramClient):
         random_ids = [m.random_id for m in media]
         return self._get_response_message(random_ids, result, entity)
 
-    async def _send_media_individually(self, entity, media, reply_to=None):
-        entity = await self.get_input_entity(entity)
-        if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
-            reply_to = types.InputReplyToMessage(reply_to_msg_id=reply_to, top_msg_id=reply_to)
-        sent = []
-        for item in media:
-            try:
-                request = functions.messages.SendMediaRequest(
-                    peer=entity,
-                    media=item.media,
-                    message=item.message,
-                    random_id=helpers.generate_random_long(),
-                    reply_to=reply_to,
-                    entities=item.entities,
-                )
-                result = await self(request)
-                sent.append(self._get_response_message(request, result, entity))
-            except MediaEmptyError:
+    async def _send_album_media_resilient(self, entity, media, reply_to=None):
+        try:
+            return await self._send_album_media(entity, media, reply_to=reply_to)
+        except MediaEmptyError:
+            if len(media) <= 1:
                 click.echo('Skipping an invalid album item.', err=True)
-        return sent
+                return []
+            midpoint = len(media) // 2
+            click.echo('Album batch rejected, retrying as smaller albums.', err=True)
+            await self._send_album_media_resilient(entity, media[:midpoint], reply_to=reply_to)
+            await self._send_album_media_resilient(entity, media[midpoint:], reply_to=reply_to)
+            return []
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
                             forward=(), reply_to=None, skip=False):
         for files_group in grouper(ALBUM_FILES, files):
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
                                     reply_to=reply_to, skip=skip)
-            if not media:
-                continue
-            try:
-                async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
-            except MediaEmptyError:
-                click.echo('Album batch rejected by Telegram, sending uploaded items individually.', err=True)
-                async_to_sync(self._send_media_individually(entity, media, reply_to=reply_to))
+            if media:
+                async_to_sync(self._send_album_media_resilient(entity, media, reply_to=reply_to))
 
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         if reply_to and not isinstance(reply_to, types.InputReplyToMessage):

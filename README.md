@@ -211,6 +211,7 @@ Notes:
 * Folder `📂` announcements are skipped in album mode.
 * Per-item captions are visible when opening a photo individually, not in the album grid (Telegram UI behavior).
 * Captions are message text, so in-chat search by filename finds the item.
+* If Telegram rejects a batch, the uploader retries it as smaller albums; an invalid single item is skipped.
 
 ### Captions
 
