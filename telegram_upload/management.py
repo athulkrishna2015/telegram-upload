@@ -301,7 +301,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                     verified_topics.add((t, top))
 
             if f:
-                paths.extend(f.split(','))
+                paths.extend([f] if os.path.lexists(f) else f.split(','))
 
             destinations.append((t, top))
             file_groups.append(wrap_files(paths))

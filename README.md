@@ -174,7 +174,7 @@ Find more help in [the telegram-upload documentation](https://docs.nekmo.org/tel
 
 ### Skip already uploaded
 
-You can **skip ⏭️ files** that have already been uploaded to the destination chat (channel, topic, or group) using the `--skip` (or `-s`) flag. This checks the destination for files with the same name and size:
+You can **skip ⏭️ files** that have already been uploaded to the destination chat (channel, topic, or group) using the `--skip` (or `-s`) flag. This checks the destination for files with the same name and size. Photos are matched by their caption filename or stem, and destination history is fetched once per topic per run:
 
 ```console
 $ telegram-upload --skip video.mp4

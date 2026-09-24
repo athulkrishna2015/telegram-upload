@@ -15,7 +15,7 @@ from telethon.utils import pack_bot_file_id
 from telegram_upload.client.progress_bar import get_progress_bar
 from telegram_upload.config import CONFIG_DIRECTORY
 from telegram_upload.exceptions import TelegramUploadDataLoss, MissingFileError
-from telegram_upload.upload_files import File
+from telegram_upload.upload_files import File, get_file_mime
 from telegram_upload.utils import grouper, async_to_sync, get_environment_integer
 
 PARALLEL_UPLOAD_BLOCKS = get_environment_integer('TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS', 8)
@@ -89,6 +89,7 @@ class TelegramUploadClient(TelegramClient):
         self.reconnecting_lock = asyncio.Lock()
         self.upload_semaphore = asyncio.Semaphore(self.parallel_upload_blocks)
         self._sender_pool = []
+        self._upload_history_cache = {}
         super().__init__(*args, **kwargs)
 
     async def _get_sender(self):
@@ -263,14 +264,46 @@ class TelegramUploadClient(TelegramClient):
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. It will not be retried.', err=True)
         return message
 
+    async def _get_upload_history(self, entity, reply_to=None):
+        key = (str(entity), reply_to)
+        if key not in self._upload_history_cache:
+            self._upload_history_cache[key] = [
+                message async for message in self.iter_messages(entity, reply_to=reply_to) if message.media
+            ]
+        return self._upload_history_cache[key]
+
+    @staticmethod
+    def _photo_history_names(messages):
+        return {
+            name
+            for message in messages
+            if getattr(message, 'document', None) is None
+            for name in (message.text,) if name
+        }
+
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
                    forward=(), send_as_media: bool = False, reply_to=None, skip=False):
         has_items = False
         messages = []
         if skip:
-            existing_files = {(m.file.name, m.file.size) for m in async_to_sync(self.iter_files_list(entity, reply_to))}
+            history = async_to_sync(self._get_upload_history(entity, reply_to))
+            existing_files = set()
+            document_captions = set()
+            for message in history:
+                if message.document and message.file:
+                    if message.file.name:
+                        existing_files.add((message.file.name, message.file.size))
+                    if message.text:
+                        document_captions.add((message.text, message.file.size))
+            photo_names = self._photo_history_names(history)
+            photo_stems = {os.path.splitext(name)[0] for name in photo_names}
+            document_caption_stems = {os.path.splitext(name)[0] for name, _ in document_captions}
         else:
             existing_files = set()
+            document_captions = set()
+            document_caption_stems = set()
+            photo_names = set()
+            photo_stems = set()
 
         from telegram_upload.upload_files import DirectoryMarker
         for file in files:
@@ -289,7 +322,12 @@ class TelegramUploadClient(TelegramClient):
                         # Might fail if not enough permissions
                         pass
                 continue
-            if skip and (file.file_name, file.file_size) in existing_files:
+            file_stem = os.path.splitext(file.file_name)[0]
+            is_photo = get_file_mime(file.path) == 'image'
+            if skip and ((file.file_name, file.file_size) in existing_files or
+                         (file.file_name, file.file_size) in document_captions or
+                         (file_stem, file.file_size) in document_caption_stems or
+                         (is_photo and (file.file_name in photo_names or file_stem in photo_stems))):
                 click.echo(f'Skipping "{file.file_name}" as it is already uploaded.')
                 continue
             thumb = file.get_thumbnail()

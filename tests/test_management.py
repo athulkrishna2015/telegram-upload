@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock
 import asyncio
@@ -63,6 +64,27 @@ class TestUpload(unittest.TestCase):
         result = runner.invoke(upload, ['--to', 'me', '--topic', 'MyTopic', test_file1, test_file2])
         self.assertEqual(result.exit_code, 0, result.output)
         mock_client.return_value.send_files.assert_called_once()
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_existing_path_with_comma(self, mock_client: MagicMock, _: MagicMock):
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_check_topic(entity, topic_id):
+            return True
+
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, 'file,with-comma.txt')
+            with open(path, 'w') as file:
+                file.write('test')
+            result = CliRunner().invoke(upload, ['--to', 'me', '--topic', '5', path])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        files = mock_client.return_value.send_files.call_args[0][1]
+        self.assertEqual(1, len(files))
+        self.assertEqual(path, files[0].path)
 
     @patch('telegram_upload.management.default_config')
     @patch('telegram_upload.management.TelegramManagerClient')

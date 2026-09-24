@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 
 from unittest.mock import patch, mock_open, Mock, MagicMock, call
 
@@ -63,6 +64,19 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
             [m.random_id for m in mock_media], self.client._call.return_value,
             self.client.get_input_entity.return_value,
         )
+
+    async def test_upload_history_is_cached(self):
+        message = MagicMock(media=object())
+
+        async def messages(*args, **kwargs):
+            yield message
+
+        self.client.iter_messages = MagicMock(side_effect=lambda *args, **kwargs: messages())
+        first = await self.client._get_upload_history('entity', 5)
+        second = await self.client._get_upload_history('entity', 5)
+
+        self.assertIs(first, second)
+        self.client.iter_messages.assert_called_once_with('entity', reply_to=5)
 
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient.send_files')
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_album_media')
@@ -183,6 +197,31 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.assertIn('subdir', self.client._send_topic_message.call_args[0][1])
         self.assertEqual(5, self.client._send_topic_message.call_args[0][2])
         self.client.pin_message.assert_called_once_with(entity, self.client._send_topic_message.return_value)
+
+    def test_send_files_skips_photo_history_by_caption(self):
+        file = File(MagicMock(max_caption_length=200), self.upload_file_path)
+        history_message = SimpleNamespace(
+            media=object(), document=None, text='logo', file=SimpleNamespace(name=None, size=1)
+        )
+        self.client._get_upload_history = AsyncMock(return_value=[history_message])
+        self.client.send_one_file = Mock()
+
+        self.client.send_files('foo', [file], skip=True)
+
+        self.client.send_one_file.assert_not_called()
+
+    def test_send_files_skips_document_by_caption_when_name_is_sanitized(self):
+        file = File(MagicMock(max_caption_length=200), self.upload_file_path)
+        history_message = SimpleNamespace(
+            media=object(), document=object(), text='logo.png',
+            file=SimpleNamespace(name='logo_image.png', size=os.path.getsize(self.upload_file_path))
+        )
+        self.client._get_upload_history = AsyncMock(return_value=[history_message])
+        self.client.send_one_file = Mock()
+
+        self.client.send_files('foo', [file], skip=True)
+
+        self.client.send_one_file.assert_not_called()
 
     def test_send_files_data_loss(self):
         mock_client = MagicMock(max_caption_length=200)
