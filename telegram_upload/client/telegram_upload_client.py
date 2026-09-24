@@ -8,7 +8,7 @@ from typing import Iterable, Optional
 import click
 from telethon import TelegramClient, utils, helpers, custom
 from telethon.crypto import AES
-from telethon.errors import RPCError, FloodWaitError, InvalidBufferError
+from telethon.errors import RPCError, FloodWaitError, InvalidBufferError, MediaEmptyError
 from telethon.tl import types, functions, TLRequest
 from telethon.utils import pack_bot_file_id
 
@@ -149,8 +149,15 @@ class TelegramUploadClient(TelegramClient):
         for files_group in grouper(ALBUM_FILES, files):
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
                                     reply_to=reply_to, skip=skip)
-            if media:
+            if not media:
+                continue
+            try:
                 async_to_sync(self._send_album_media(entity, media, reply_to=reply_to))
+            except MediaEmptyError:
+                names = ', '.join(str(getattr(f, 'file_name', f)) for f in files_group)
+                click.echo(f'Album send rejected by Telegram, sending individually: {names}', err=True)
+                self.send_files(entity, files_group, delete_on_success, print_file_id, forward,
+                                reply_to=reply_to, skip=skip)
 
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         if reply_to and not isinstance(reply_to, types.InputReplyToMessage):

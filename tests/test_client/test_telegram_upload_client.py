@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch, mock_open, Mock, MagicMock, call
 
 from telethon import types
-from telethon.errors import FloodWaitError, RPCError
+from telethon.errors import FloodWaitError, RPCError, MediaEmptyError
 
 from telegram_upload.client.telegram_upload_client import TelegramUploadClient
 from telegram_upload.exceptions import TelegramUploadDataLoss, MissingFileError
@@ -75,6 +75,19 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
             entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False
         )
         mock_send_album_media.assert_called_once_with(entity, mock_send_files.return_value, reply_to=None)
+
+    @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient.send_files')
+    @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_album_media')
+    def test_send_files_as_album_falls_back_on_media_empty(self, mock_send_album_media: MagicMock,
+                                                           mock_send_files: MagicMock):
+        entity = "entity"
+        mock_files = [MagicMock(), MagicMock()]
+        mock_send_files.return_value = [MagicMock()]
+        mock_send_album_media.side_effect = MediaEmptyError(None)
+        self.client.send_files_as_album(entity, mock_files)
+        self.assertEqual(2, mock_send_files.call_count)
+        fallback_call = mock_send_files.call_args_list[1]
+        self.assertNotIn('send_as_media', fallback_call.kwargs)
 
     @patch('telegram_upload.management.default_config')
     def test_missing_file(self, m1):
