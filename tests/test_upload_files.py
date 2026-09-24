@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,15 @@ class TestFile(unittest.TestCase):
         self.file = File()
         self.file.client = self.mock_client
         self.file.path = "path/to/file.txt"
+
+    def test_file_releases_descriptor_until_read(self):
+        path = os.path.join(os.path.dirname(__file__), 'file1.txt')
+        file = File(self.mock_client, path)
+        self.assertTrue(file.closed)
+        self.assertTrue(file.read().startswith(b'file 1'))
+        self.assertFalse(file.closed)
+        file.close()
+        self.assertTrue(file.closed)
 
     def test_file_caption(self):
         """Test file_caption method."""

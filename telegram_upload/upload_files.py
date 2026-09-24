@@ -173,6 +173,50 @@ class File(FileIO):
         self.force_file = self.force_file if force_file is None else force_file
         self._thumbnail = thumbnail
         self._caption = caption
+        self._position = 0
+        self.close()
+
+    def _ensure_open(self):
+        if super().closed:
+            super().__init__(self.path)
+            super().seek(self._position)
+
+    def read(self, size=-1):
+        self._ensure_open()
+        data = super().read(size)
+        self._position = super().tell()
+        return data
+
+    def readall(self):
+        self._ensure_open()
+        data = super().readall()
+        self._position = super().tell()
+        return data
+
+    def seek(self, offset, whence=SEEK_SET):
+        if super().closed and whence == SEEK_SET:
+            self._position = offset
+            return offset
+        self._ensure_open()
+        self._position = super().seek(offset, whence)
+        return self._position
+
+    def tell(self):
+        if super().closed:
+            return self._position
+        self._position = super().tell()
+        return self._position
+
+    def seekable(self):
+        return True
+
+    def readable(self):
+        return True
+
+    def close(self):
+        if not super().closed:
+            self._position = super().tell()
+        super().close()
 
     @property
     def file_name(self):

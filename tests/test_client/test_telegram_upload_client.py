@@ -154,6 +154,22 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.assertIn('subdir', self.client.send_message.call_args[0][1])
         self.client.pin_message.assert_called_once_with(entity, self.client.send_message.return_value)
 
+    def test_send_files_with_topic_directory_marker(self):
+        from telegram_upload.upload_files import DirectoryMarker
+        self.client.send_message = Mock()
+        self.client.pin_message = Mock()
+        self.client._send_topic_message = AsyncMock()
+        entity = 'foo'
+        marker = DirectoryMarker('/path/to/subdir')
+
+        self.client.send_files(entity, [marker], reply_to=5)
+
+        self.client.send_message.assert_not_called()
+        self.client._send_topic_message.assert_called_once()
+        self.assertIn('subdir', self.client._send_topic_message.call_args[0][1])
+        self.assertEqual(5, self.client._send_topic_message.call_args[0][2])
+        self.client.pin_message.assert_called_once_with(entity, self.client._send_topic_message.return_value)
+
     def test_send_files_data_loss(self):
         mock_client = MagicMock(max_caption_length=200)
         file = File(mock_client, self.upload_file_path)
@@ -181,3 +197,13 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
                    side_effect=lambda obj, target: isinstance_result.get(target, isinstance(obj, target))), \
                 self.subTest("Test Document"):
             await self.client._send_media(entity, file, mock_progress)
+
+    async def test_send_media_uses_full_file_name_as_caption(self):
+        mock_client = MagicMock(max_caption_length=200)
+        file = File(mock_client, self.upload_file_path)
+        mock_progress = MagicMock()
+        self.client.get_input_entity = AsyncMock()
+        with patch.object(TelegramUploadClient, '_file_to_media', new_callable=AsyncMock) as mock_to_media:
+            mock_to_media.return_value = (None, MagicMock(), True)
+            media = await self.client._send_media('entity', file, mock_progress)
+        self.assertEqual(os.path.basename(self.upload_file_path), media.message)
