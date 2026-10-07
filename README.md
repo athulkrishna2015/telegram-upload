@@ -10,9 +10,15 @@
 
 # telegram-upload
 
-Telegram-upload uses your **personal Telegram account** to **upload** and **download** files up to **4 GiB** (2 GiB for free users). Turn Telegram into your personal ☁ cloud!
+Use your **personal Telegram account** to **upload** and **download** files through chats, channels, and forum
+topics — up to **2 GiB** per file (4 GiB for Premium users). Videos and images are sent as streamable media, not
+plain documents.
 
-To install **this checkout**, including its topic-folder, `--topic-depth`, and `--dry-run` options, run this command from the repository root:
+![demo](https://raw.githubusercontent.com/athulkrishna2015/telegram-upload/master/assets/telegram-upload-demo.gif)
+
+## Install
+
+Install this checkout (includes folder-topic uploads, `--topic-depth`, and `--dry-run`):
 
 ```console
 $ uv tool install --python 3.11 --force .
@@ -20,81 +26,55 @@ $ uv tool install --python 3.11 --force .
 
 Python 3.11 is used because the current code imports `distutils`, which was removed in Python 3.12.
 
-To install the upstream PyPI release instead:
-
 ```console
-$ uv tool install --python 3.11 telegram-upload
+$ telegram-upload --help
 ```
 
-> The PyPI release may not include the checkout-specific topic-folder, `--topic-depth`, or `--dry-run` features documented here. Check `telegram-upload --help` for the installed command's options.
+> The PyPI release may not include the checkout-specific topic-folder, `--topic-depth`, or `--dry-run` features
+> documented here. Check `telegram-upload --help` for the installed command's options.
 
-You can also install the upstream master branch from GitHub:
+See the [installation guide](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/installation.md)
+for PyPI, GitHub, and Docker installs.
 
-```console
-$ uv tool install --python 3.11 https://github.com/Nekmo/telegram-upload/archive/refs/heads/master.zip
-```
+## Quick start
 
-More installation options, including Docker, are available in the [📕 installation guide](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/installation.md).
-
-![demo](https://raw.githubusercontent.com/athulkrishna2015/telegram-upload/master/assets/telegram-upload-demo.gif)
-
-## ❓ Quick start
-
-To use this program you need a Telegram account and your **App api_id & api_hash** (get it in [my.telegram.org](https://my.telegram.org/)). The first time you use telegram-upload it requests your 📱 **telephone**, **api_id** and **api_hash**. Bot tokens can not be used with this program (bot uploads are limited to 50MB).
-
-To **send ⬆️ files** (by default it is uploaded to saved messages):
+You need a Telegram account and your **App api_id & api_hash** (get them in [my.telegram.org](https://my.telegram.org/)).
+The first run requests your 📱 **telephone**, **api_id** and **api_hash** interactively. Bot tokens can not be used
+with this program (bot uploads are limited to 50MB).
 
 ```console
-$ telegram-upload file1.mp4 file2.mkv
+$ telegram-upload file1.mp4 file2.mkv        # to Saved Messages
+$ telegram-upload --to my_group video.mkv    # to a group
+$ telegram-download                          # fetch them back
 ```
 
-You can **download ⤵️ the files** again from your saved messages (by default) or from a channel. All files will be downloaded until the last text message.
-
-```console
-$ telegram-download
-```
-
-[Read the documentation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) for more info about the options available.
-
-### Preview and upload a folder tree to forum topics
-
-Install this checkout to use `--dry-run` and `--topic-depth`. For example, preview a directory where each first-level folder becomes a topic, root files go to General, and deeper folders become pinned headings:
+Preview a folder-to-topics upload before sending anything (root files go to General, first-level folders become
+topics, deeper folders become pinned headings):
 
 ```console
 $ telegram-upload --to my_group -t "/path/to/course" --topic-depth 1 --sort --skip --dry-run
 ```
 
-When the preview looks right, run the same command without `--dry-run`:
+Remove `--dry-run` to run it for real. Use `--topic-depth 2` for nested topics, `--interactive` for a terminal
+wizard, and rerun the same command to resume interrupted files or `--skip` completed ones.
 
-```console
-$ telegram-upload --to my_group -t "/path/to/course" --topic-depth 1 --sort --skip
-```
+## Guides
 
-Use `--topic-depth 2` to turn the next folder level into nested topics. See the [complete usage guide](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) and [architecture notes](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/architecture.md) for routing details, dry-run behavior, skip matching, and resume semantics.
-
-### Interactive mode
-
-The **interactive option** (`--interactive`) allows you to choose the dialog and the files to download or upload with a **terminal 🪄 wizard**. It even **supports mouse**!
-
-```console
-$ telegram-upload --interactive    # Interactive upload
-$ telegram-download --interactive  # Interactive download
-```
-
-[More info in the documentation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md#interactive-mode)
-
-## Documentation and development
-
-Guides:
-
-* [Installation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/installation.md) — install this checkout, PyPI, GitHub, or Docker.
-* [Usage](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) — CLI workflows, folder-topic mapping, dry-run, skip, and resume.
+* [Quick start](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/quickstart.md) — first run, destinations, interactive mode.
+* [Usage reference](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) — every flag for both commands.
+* [Folder trees to forum topics](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/topics.md) — `--topic-depth` layouts and dry-run output.
+* [Configuration](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/configuration.md) — config files, proxies, environment variables.
 * [Architecture](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/architecture.md) — planning, upload pipeline, and state map.
-* [Troubleshooting](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/troubleshooting.md) — diagnose install, topic, upload, and performance issues.
+* [Troubleshooting](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/troubleshooting.md) — common failures and fixes.
 * [Caption format](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/caption_format.md) — caption variables for uploaded files.
 * [Supported file types](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/supported_file_types.md) — media feature matrix.
 * [Upload benchmarks](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/upload_benchmark.md) — parallelism measurements.
 * [Contributing](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/contributing.md) — development setup and running tests.
+
+## Notes
+
+* `--skip` matches by filename/size per destination; interrupted files resume from local progress state.
+* Never share `~/.config/telegram-upload.json`, `*.session` files, or your `api_hash`.
 
 Run unit tests locally:
 
@@ -102,7 +82,7 @@ Run unit tests locally:
 $ uv run --isolated --python 3.11 --with-requirements requirements-dev.txt python -m unittest discover
 ```
 
-You can also run functional tests using the provided script (requires a `.env` file or local configuration):
+Functional tests need a local Telegram configuration:
 
 ```console
 $ ./tests/functional_test.sh
@@ -110,7 +90,8 @@ $ ./tests/functional_test.sh
 
 ## 🐋 Docker
 
-Run telegram-upload without installing it on your system using Docker. Instead of `telegram-upload` and `telegram-download` you should use `upload` and `download`. Usage:
+Run telegram-upload without installing it on your system using Docker. Instead of `telegram-upload` and
+`telegram-download` you should use `upload` and `download`. Usage:
 
 ```console
 $ docker run -v <files_dir>:/files/
@@ -135,6 +116,6 @@ $ docker run -v /media/data/:/files/
 
 ## ❤️ Thanks
 
-This project developed by [Nekmo](https://github.com/Nekmo) & [collaborators](https://github.com/Nekmo/telegram-upload/graphs/contributors) would not be possible without [Telethon](https://github.com/LonamiWebs/Telethon), the library used as a Telegram client.
-
-Telegram-upload is licensed under the [MIT license](https://github.com/athulkrishna2015/telegram-upload/blob/master/LICENSE).
+Based on [Nekmo/telegram-upload](https://github.com/Nekmo/telegram-upload), built on
+[Telethon](https://github.com/LonamiWebs/Telethon). Licensed under the
+[MIT license](https://github.com/athulkrishna2015/telegram-upload/blob/master/LICENSE).

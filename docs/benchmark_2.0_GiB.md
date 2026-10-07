@@ -1,3 +1,5 @@
+# 2 GiB benchmark results
+
 | Parallel | Minimum | Maximum | Average | Median | Speed |
 | --- | --- | --- | --- | --- | --- |
 | 1 chunk | 420.82 sec. | 451.54 sec. | 437.80 sec. | 440.59 sec. | 4.6 MiB/s |

@@ -115,3 +115,15 @@ To run the unit tests:
 ```console
 $ python -m unittest discover tests
 ```
+
+## Checkout notes
+
+The layout relevant to current development:
+
+* `telegram_upload/management.py` — Click CLI, destination/topic planning, dry-run reports.
+* `telegram_upload/upload_files.py` — traversal, `File`/`SplitFile` wrappers, media attributes.
+* `telegram_upload/client/` — Telethon clients (topic lookup, sending, skip planning, progress).
+* `tests/test_management.py`, `tests/test_client/` — CLI planning and send/skip tests.
+
+Keep [Usage](usage.md)'s flag tables in sync with `telegram-upload --help` when adding options, and use generic
+placeholders (never real chat ids, paths, or credentials) in docs and tests.

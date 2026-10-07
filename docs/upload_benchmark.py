@@ -165,7 +165,7 @@ def save_md_size_table(key: int, grouped: List[BenchmarkResult]):
         tablefmt="github", floatfmt=".3f"
     )
     with open(f"benchmark_{filesize.for_humans.replace(' ', '_')}.md", 'w') as file:
-        output = f"{table}\n\n" \
+        output = f"# {filesize.for_humans} benchmark results\n\n{table}\n\n" \
                  f"* **Minimum time:** {minimum:.2f} sec. ({FileSize(key / minimum).for_humans}/s)\n" \
                  f"* **Maximum time:** {maximum:.2f} sec. ({FileSize(key / maximum).for_humans}/s)\n" \
                  f"* **Average time:** {average:.2f} sec. ({FileSize(key / average).for_humans}/s)\n" \
@@ -186,7 +186,7 @@ def save_md_table(results: List[BenchmarkResult]):
         tablefmt="github", floatfmt=".3f"
     )
     with open(f"benchmark_full.md", 'w') as file:
-        file.write(table)
+        file.write(f"# Complete benchmark results\n\n{table}\n")
 
 
 @click.group()

@@ -15,7 +15,10 @@ For the checkout-specific topic-folder, `--topic-depth`, and `--dry-run` options
 ## Guides
 
 * [Installation](installation.md) — install this checkout, the PyPI release, or Docker.
+* [Quick start](quickstart.md) — first run, destinations, interactive mode.
 * [Usage](usage.md) — CLI workflows, folder-topic mapping, dry-run, skip, and resume.
+* [Folder trees to forum topics](topics.md) — `--topic-depth` layouts and dry-run output.
+* [Configuration](configuration.md) — config files, proxies, environment variables.
 * [Architecture](architecture.md) — planning, upload pipeline, and state map.
 * [Troubleshooting](troubleshooting.md) — diagnose install, topic, upload, and performance issues.
 * [Caption format](caption_format.md) — caption variables for uploaded files.
@@ -32,12 +35,20 @@ For the checkout-specific topic-folder, `--topic-depth`, and `--dry-run` options
 
 installation
 readme
+quickstart
 usage
+topics
+configuration
 architecture
 troubleshooting
 caption_format
 supported_file_types
 upload_benchmark
+benchmark_512.0_KiB
+benchmark_20.0_MiB
+benchmark_200.0_MiB
+benchmark_2.0_GiB
+benchmark_full
 contributing
 authors
 history

@@ -1,3 +1,5 @@
+# Complete benchmark results
+
 | Filesize | Parallel | Time | Speed |
 | --- | --- | --- | --- |
 | 512.0 KiB | 1 chunk | 0.37 sec. | 1.4 MiB/s |

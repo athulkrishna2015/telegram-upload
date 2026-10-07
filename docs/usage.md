@@ -1,21 +1,73 @@
 
 # Usage
 
+This page uses plain Markdown so it reads the same on GitHub and on the built docs site. (It replaces the old
+Sphinx-only `eval-rst`/`click` blocks, which auto-generated the CLI reference at docs-build time but rendered as raw
+fences on GitHub.)
 
-```{eval-rst}
-.. click:: telegram_upload.management:upload
-   :prog: telegram-upload
-   :show-nested:
+## Command reference
 
+The reference below mirrors `telegram-upload --help` and `telegram-download --help` for this checkout. Repeatable
+options accept multiple values.
 
-```
+### `telegram-upload [OPTIONS] [FILES]...`
 
-```{eval-rst}
-.. click:: telegram_upload.management:download
-   :prog: telegram-download
-   :show-nested:
+Upload files with your personal Telegram account (2 GiB per file for free accounts, 4 GiB for Premium). Files go to
+Saved Messages unless `--to` selects another destination.
 
-```
+| Option | Description |
+|---|---|
+| `--to TEXT` | Destination: phone, username, invite link, chat id, or `me` (default). Repeatable. |
+| `--config TEXT` | Config file (default `~/.config/telegram-upload.json`). |
+| `-d, --delete-on-success` | Delete the local file after a successful upload. |
+| `--print-file-id` | Print the uploaded file's id after the upload. |
+| `--force-file` | Always send as a file (keeps filename, no preview). Without it, videos/images are sent as streamable media when recognized. |
+| `-f, --forward TEXT` | Forward each upload to another chat/user. Repeatable. |
+| `--directories [fail\|recursive]` | How to handle directories (default `fail`). |
+| `-r, --recursive` | Upload directories recursively (sets `--directories recursive`). |
+| `--large-files [fail\|split]` | Files over the Telegram limit: `fail` (default, abort) or `split` into numbered parts. |
+| `--caption TEXT` | Caption template (supports `{file.*}` variables). Default: filename without extension. |
+| `--no-thumbnail` | Disable thumbnail generation (mutually exclusive with `--thumbnail-file`). |
+| `--thumbnail-file TEXT` | Custom preview image for uploads (mutually exclusive with `--no-thumbnail`). |
+| `-p, --proxy TEXT` | `http`, `socks4`, `socks5`, or `mtproto` proxy (for example `socks5://user:pass@1.2.3.4:8080`). |
+| `-a, --album` | Group photos/videos into albums of up to 10, each captioned with its filename. |
+| `-i, --interactive` | Terminal wizard to pick files and destination (mouse supported). |
+| `--sort` | Sort files by name (natural sort if `natsort` is installed). |
+| `-t, --topic TEXT` | Forum topic id, name, or folder path. Repeatable; pairs with `--to` and positional files. |
+| `--distribute` | Split files across destinations instead of sending all files everywhere. |
+| `-s, --skip` | Skip files whose name and size already exist in the destination. |
+| `--dry-run` | Preview planned destinations, topics, uploads, skips, and announcements without sending or creating topics. |
+| `--topic-depth INTEGER` | Treat a `-t` directory as a folder tree: folders up to this depth (≥ 1) become topics; deeper folders become pinned announcements; root files go to General. |
+| `--help` | Show the help message and exit. |
+
+### `telegram-download [OPTIONS]`
+
+Download file messages from a chat (Saved Messages by default). All files are downloaded until the last text message.
+
+| Option | Description |
+|---|---|
+| `-f, --from TEXT` | Source: phone, username, chat id, or `me` (default). Repeatable. |
+| `--config TEXT` | Config file (default `~/.config/telegram-upload.json`). |
+| `-d, --delete-on-success` | Delete the Telegram message after downloading (download queue). |
+| `-p, --proxy TEXT` | Same proxy format as upload. |
+| `-m, --split-files [keep\|join]` | Files previously uploaded with `--large-files split`: `keep` (default) or `join` them back together. |
+| `-i, --interactive` | Terminal wizard to pick source and files. |
+| `-t, --topic TEXT` | Topic id or name to download from. Repeatable. |
+| `--help` | Show the help message and exit. |
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS` | `8` | File chunks uploaded in parallel. |
+| `TELEGRAM_UPLOAD_MAX_CONNECTIONS` | `1` | Parallel TCP connections (speed boost; too many can trigger Flood Wait). |
+| `TELEGRAM_UPLOAD_MAX_RECONNECT_RETRIES` | `5` | Reconnect attempts on connection errors. |
+| `TELEGRAM_UPLOAD_RECONNECT_TIMEOUT` | `5` | Timeout between reconnect attempts. |
+| `TELEGRAM_UPLOAD_MIN_RECONNECT_WAIT` | `2` | Minimum wait before retrying a failed part. |
+| `TELEGRAM_UPLOAD_PARALLEL_DOWNLOAD_BLOCKS` | `10` | Download chunks fetched in parallel. |
+| `TELEGRAM_UPLOAD_PROXY` (`HTTPS_PROXY`, `HTTP_PROXY`) | — | Proxy fallback chain. |
+| `TELEGRAM_UPLOAD_SESSION` | — | Session string override (instead of the session file). |
+| `TELEGRAM_UPLOAD_CONFIG_DIRECTORY` | `~/.config` | Directory holding the config and session files. |
 
 ## Set recipient or sender
 
@@ -80,7 +132,7 @@ course/
         └── lesson.mp4
 ```
 
-At depth 1, `root-index.txt` goes to General, both videos go to topic `CHEMISTRY`, and `INTRODUCTION` is a pinned folder announcement in that topic. At depth 2, `INTRODUCTION` becomes a topic titled `CHEMISTRY / INTRODUCTION`.
+At depth 1, `root-index.txt` goes to General, both videos go to topic `CHEMISTRY`, and `INTRODUCTION` is a pinned folder announcement in that topic. At depth 2, `INTRODUCTION` becomes a topic titled `CHEMISTRY / INTRODUCTION`. The dedicated [Folder trees to forum topics](topics.md) guide covers more layouts.
 
 The same rule applies at each folder level. For a tree `Root/A/B/C/file.txt`, `--topic-depth 1` creates topic `A` and pins `B` and `C` there; depth 2 creates `A` and `A / B` and pins `C` in the latter; depth 3 creates `A`, `A / B`, and `A / B / C`. Files in `Root/` always go to General.
 
@@ -193,7 +245,8 @@ $ telegram-upload image.jpg
 ```
 
 Parameter `--proxy` has higher priority over environment variables. The environment variable
-`TELEGRAM_UPLOAD_PROXY` takes precedence over `HTTPS_PROXY` and it takes precedence over `HTTP_PROXY`. To disable
+`TELEGRAM_UPLOAD_PROXY` takes precedence over `HTTPS_PROXY` and it takes precedence over `HTTP_PROXY`. The full
+proxy and environment reference lives in [Configuration](configuration.md). To disable
 the OS proxy:
 ```console
 $ export TELEGRAM_UPLOAD_PROXY=

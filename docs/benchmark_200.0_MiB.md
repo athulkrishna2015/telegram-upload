@@ -1,3 +1,5 @@
+# 200 MiB benchmark results
+
 | Parallel | Minimum | Maximum | Average | Median | Speed |
 | --- | --- | --- | --- | --- | --- |
 | 1 chunk | 131.92 sec. | 141.38 sec. | 136.48 sec. | 136.55 sec. | 1.5 MiB/s |

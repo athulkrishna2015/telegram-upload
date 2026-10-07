@@ -60,9 +60,7 @@ The following results were obtained using the `upload_benchmark.py` script.
 ## Small files (512 KiB)
 
 The following table shows the time it takes to upload a 512 KiB file using different number of parallel chunks.
-
-```{include} benchmark_512.0_KiB.md
-```
+See the full results table in [benchmark_512.0_KiB.md](benchmark_512.0_KiB.md).
 
 
 Each file is **uploaded 10 times** to obtain the minimum, maximum, the average and the median time. The data can be
@@ -78,9 +76,7 @@ size is 512 KiB and the chunk size is 128 KiB. This means that the file is uploa
 ## Medium files (20 MiB)
 
 The following table shows the time it takes to upload a 20 MiB file using different number of parallel chunks.
-
-```{include} benchmark_20.0_MiB.md
-```
+See the full results table in [benchmark_20.0_MiB.md](benchmark_20.0_MiB.md).
 
 
 Each file is **uploaded 10 times** to obtain the minimum, maximum, the average and the median time. The data can be
@@ -96,9 +92,7 @@ size is 128 KiB.
 ## Big files (200 MiB)
 
 The following table shows the time it takes to upload a 200 MiB file using different number of parallel chunks.
-
-```{include} benchmark_200.0_MiB.md
-```
+See the full results table in [benchmark_200.0_MiB.md](benchmark_200.0_MiB.md).
 
 
 Each file is **uploaded 5 times** to obtain the minimum, maximum, the average and the median time. The data can be
@@ -114,9 +108,7 @@ size is 256 KiB.
 ## Full size files (2 GiB)
 
 The following table shows the time it takes to upload a 2 GiB file using different number of parallel chunks.
-
-```{include} benchmark_2.0_GiB.md
-```
+See the full results table in [benchmark_2.0_GiB.md](benchmark_2.0_GiB.md).
 
 
 Each file is **uploaded 5 times** to obtain the minimum, maximum, the average and the median time. The data can be
@@ -132,10 +124,8 @@ size is 512 KiB.
 ## Complete results
 
 The following table shows the time it takes to upload a 512 KiB, 20 MiB, 200 MiB and 2 GiB files using different number
-of parallel chunks. Unlike the previous tables, all the data is included.
-
-```{include} benchmark_full.md
-```
+of parallel chunks. Unlike the previous tables, all the data is included. See the full results table in
+[benchmark_full.md](benchmark_full.md).
 
 
 The results are also available in the `docs` directory in the `upload_benchmark.json` file.

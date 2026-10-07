@@ -1,3 +1,5 @@
+# 512 KiB benchmark results
+
 | Parallel | Minimum | Maximum | Average | Median | Speed |
 | --- | --- | --- | --- | --- | --- |
 | 1 chunk | 0.29 sec. | 0.45 sec. | 0.33 sec. | 0.32 sec. | 1.6 MiB/s |
