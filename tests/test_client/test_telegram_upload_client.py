@@ -36,7 +36,7 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
     @patch('builtins.open', mock_open(read_data=json.dumps(CONFIG_DATA)))
     @patch('telegram_upload.client.telegram_upload_client.TelegramClient.__init__', return_value=None)
     def setUp(self, m1) -> None:
-        self.upload_file_path = os.path.abspath(os.path.join(directory, 'logo.png'))
+        self.upload_file_path = os.path.abspath(os.path.join(directory, 'assets/logo.png'))
         self.client = TelegramUploadClient(Mock(), Mock(), Mock())
         self.client.send_file = Mock()
         self.client.send_file.return_value.media.document.size = os.path.getsize(self.upload_file_path)
@@ -222,6 +222,25 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.client.send_files('foo', [file], skip=True)
 
         self.client.send_one_file.assert_not_called()
+
+    def test_plan_files_classifies(self):
+        from telegram_upload.upload_files import DirectoryMarker
+        file = File(MagicMock(max_caption_length=200), self.upload_file_path)
+        marker = DirectoryMarker('/path/to/subdir')
+        plan = self.client.plan_files('foo', [file, marker])
+        self.assertEqual([action for action, _ in plan], ['upload', 'announce'])
+        plan_album = self.client.plan_files('foo', [file, marker], send_as_media=True)
+        self.assertEqual([action for action, _ in plan_album], ['upload', 'ignored'])
+
+    def test_plan_files_marks_skipped(self):
+        file = File(MagicMock(max_caption_length=200), self.upload_file_path)
+        history_message = SimpleNamespace(
+            media=object(), document=object(), text='logo',
+            file=SimpleNamespace(name='logo.png', size=os.path.getsize(self.upload_file_path))
+        )
+        self.client._get_upload_history = AsyncMock(return_value=[history_message])
+        plan = self.client.plan_files('foo', [file], skip=True)
+        self.assertEqual([action for action, _ in plan], ['skip'])
 
     def test_send_files_data_loss(self):
         mock_client = MagicMock(max_caption_length=200)

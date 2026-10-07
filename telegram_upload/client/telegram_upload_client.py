@@ -281,10 +281,14 @@ class TelegramUploadClient(TelegramClient):
             for name in (message.text,) if name
         }
 
-    def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
-                   forward=(), send_as_media: bool = False, reply_to=None, skip=False):
-        has_items = False
-        messages = []
+    def plan_files(self, entity, files: Iterable[File], reply_to=None, skip=False,
+                   send_as_media: bool = False):
+        """Classify each item as ('upload' | 'skip' | 'announce' | 'ignored', file).
+
+        Read-only: never sends, pins or creates anything. Used by send_files
+        and by --dry-run to preview what would happen.
+        """
+        from telegram_upload.upload_files import DirectoryMarker
         if skip:
             history = async_to_sync(self._get_upload_history(entity, reply_to))
             existing_files = set()
@@ -305,22 +309,10 @@ class TelegramUploadClient(TelegramClient):
             photo_names = set()
             photo_stems = set()
 
-        from telegram_upload.upload_files import DirectoryMarker
+        plan = []
         for file in files:
-            has_items = True
             if isinstance(file, DirectoryMarker):
-                if not send_as_media:
-                    # Send subfolder name and pin it
-                    message = f"📂 **{file.file_name}**"
-                    if reply_to:
-                        msg = async_to_sync(self._send_topic_message(entity, message, reply_to))
-                    else:
-                        msg = self.send_message(entity, message)
-                    try:
-                        self.pin_message(entity, msg)
-                    except RPCError:
-                        # Might fail if not enough permissions
-                        pass
+                plan.append(('announce' if not send_as_media else 'ignored', file))
                 continue
             file_stem = os.path.splitext(file.file_name)[0]
             is_photo = get_file_mime(file.path) == 'image'
@@ -328,6 +320,35 @@ class TelegramUploadClient(TelegramClient):
                          (file.file_name, file.file_size) in document_captions or
                          (file_stem, file.file_size) in document_caption_stems or
                          (is_photo and (file.file_name in photo_names or file_stem in photo_stems))):
+                plan.append(('skip', file))
+                continue
+            plan.append(('upload', file))
+        return plan
+
+    def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
+                   forward=(), send_as_media: bool = False, reply_to=None, skip=False):
+        plan = self.plan_files(entity, files, reply_to=reply_to, skip=skip,
+                               send_as_media=send_as_media)
+        if not plan:
+            raise MissingFileError('Files do not exist.')
+        messages = []
+        for action, file in plan:
+            if action == 'ignored':
+                continue
+            if action == 'announce':
+                # Send subfolder name and pin it
+                message = f"📂 **{file.file_name}**"
+                if reply_to:
+                    msg = async_to_sync(self._send_topic_message(entity, message, reply_to))
+                else:
+                    msg = self.send_message(entity, message)
+                try:
+                    self.pin_message(entity, msg)
+                except RPCError:
+                    # Might fail if not enough permissions
+                    pass
+                continue
+            if action == 'skip':
                 click.echo(f'Skipping "{file.file_name}" as it is already uploaded.')
                 continue
             thumb = file.get_thumbnail()
@@ -349,8 +370,6 @@ class TelegramUploadClient(TelegramClient):
             if message:
                 self.forward_to(message, forward)
                 messages.append(message)
-        if not has_items:
-            raise MissingFileError('Files do not exist.')
         return messages
 
     async def upload_file(

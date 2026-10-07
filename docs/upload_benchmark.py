@@ -143,8 +143,8 @@ def benchmark_file_size(client: TelegramManagerClient, size: int, repeats: int =
     }
 
 
-def save_rst_size_table(key: int, grouped: List[BenchmarkResult]):
-    """Save a table with the benchmark results for a specific size in RST format"""
+def save_md_size_table(key: int, grouped: List[BenchmarkResult]):
+    """Save a table with the benchmark results for a specific size in Markdown format"""
     filesize = FileSize(key)
     maximum = max([x["benchmark"]["maximum"] for x in grouped])
     minimum = min([x["benchmark"]["minimum"] for x in grouped])
@@ -162,9 +162,9 @@ def save_rst_size_table(key: int, grouped: List[BenchmarkResult]):
             ] for x in grouped
         ],
         headers=["Parallel", "Minimum", "Maximum", "Average", "Median", "Speed (MiB/s)"],
-        tablefmt="rst", floatfmt=".3f"
+        tablefmt="github", floatfmt=".3f"
     )
-    with open(f"benchmark_{filesize.for_humans.replace(' ', '_')}.rst", 'w') as file:
+    with open(f"benchmark_{filesize.for_humans.replace(' ', '_')}.md", 'w') as file:
         output = f"{table}\n\n" \
                  f"* **Minimum time:** {minimum:.2f} sec. ({FileSize(key / minimum).for_humans}/s)\n" \
                  f"* **Maximum time:** {maximum:.2f} sec. ({FileSize(key / maximum).for_humans}/s)\n" \
@@ -173,8 +173,8 @@ def save_rst_size_table(key: int, grouped: List[BenchmarkResult]):
         file.write(output)
 
 
-def save_rst_table(results: List[BenchmarkResult]):
-    """Save a table with the benchmark results in RST format"""
+def save_md_table(results: List[BenchmarkResult]):
+    """Save a table with the benchmark results in Markdown format"""
     table = tabulate(
         chain(*[[[
             FileSize(x["size"]).for_humans,
@@ -183,9 +183,9 @@ def save_rst_table(results: List[BenchmarkResult]):
             f"{FileSize(x['size'] / t).for_humans}/s",
         ] for t in x["benchmark"]["times"]] for x in results]),
         headers=["Filesize", "Parallel", "Time", "Speed"],
-        tablefmt="rst", floatfmt=".3f"
+        tablefmt="github", floatfmt=".3f"
     )
-    with open(f"benchmark_full.rst", 'w') as file:
+    with open(f"benchmark_full.md", 'w') as file:
         file.write(table)
 
 
@@ -250,14 +250,14 @@ def graphs(results_file):
 @cli.command()
 @click.option('--results-file', '-f', default=RESULTS_FILE, type=click.Path(exists=True, dir_okay=False),
               help='JSON results file')
-def rst(results_file):
+def md(results_file):
     with open(results_file, 'r') as file:
         results: List[BenchmarkResult] = json.load(file)
     results_grouped = groupby(results, lambda x: x["size"])
     for key, grouped in results_grouped:
         grouped = list(grouped)
-        save_rst_size_table(key, grouped)
-    save_rst_table(results)
+        save_md_size_table(key, grouped)
+    save_md_table(results)
 
 
 if __name__ == '__main__':

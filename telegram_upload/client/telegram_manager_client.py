@@ -132,9 +132,8 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
         else:
             return USER_MAX_CAPTION_LENGTH
 
-    async def get_or_create_topic(self, entity, title):
+    async def find_topic(self, entity, title):
         entity = await self.get_input_entity(entity)
-        # Search for existing topic
         result = await self(functions.messages.GetForumTopicsRequest(
             peer=entity,
             q=title,
@@ -146,7 +145,14 @@ class TelegramManagerClient(TelegramUploadClient, TelegramDownloadClient):
         for topic in result.topics:
             if hasattr(topic, 'title') and topic.title == title:
                 return topic.id
+        return None
 
+    async def get_or_create_topic(self, entity, title):
+        found = await self.find_topic(entity, title)
+        if found is not None:
+            return found
+
+        entity = await self.get_input_entity(entity)
         # Create new topic if not found
         try:
             result = await self(functions.messages.CreateForumTopicRequest(

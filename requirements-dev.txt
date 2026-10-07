@@ -1,6 +1,7 @@
 -r requirements.txt
 bumpversion
 sphinx-click
+myst-parser
 tox>=1.8
 codecov
 pysocks

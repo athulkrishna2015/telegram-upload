@@ -267,6 +267,183 @@ class TestUpload(unittest.TestCase):
 
     @patch('telegram_upload.management.default_config')
     @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_folder_recursive_with_sort(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_get_topic(entity, title):
+            return 123
+        mock_client.return_value.get_or_create_topic.side_effect = mock_get_topic
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, 'b_root.txt'), 'w') as f:
+                f.write('root')
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            with open(os.path.join(sub_dir, 'a_sub.txt'), 'w') as f:
+                f.write('sub')
+            runner = CliRunner()
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--sort'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            mock_client.return_value.send_files.assert_called_once()
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_dry_run_does_not_send_or_create(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_find_topic(entity, title):
+            return None
+        mock_client.return_value.find_topic.side_effect = mock_find_topic
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, 'a.txt'), 'w') as f:
+                f.write('content')
+            sub_dir = os.path.join(temp_dir, 'subdir')
+            os.makedirs(sub_dir)
+            with open(os.path.join(sub_dir, 'b.txt'), 'w') as f:
+                f.write('content')
+            runner = CliRunner()
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--dry-run'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            mock_client.return_value.get_or_create_topic.assert_not_called()
+            mock_client.return_value.send_files.assert_not_called()
+            mock_client.return_value.send_files_as_album.assert_not_called()
+            self.assertIn('[dry-run]', result.output)
+            self.assertIn('would create', result.output)
+            self.assertIn('a.txt', result.output)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_dry_run_existing_topic_with_skip(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_find_topic(entity, title):
+            return 123
+        mock_client.return_value.find_topic.side_effect = mock_find_topic
+        mock_client.return_value.plan_files.side_effect = (
+            lambda entity, files, reply_to=None, skip=False, send_as_media=False:
+            [('upload', f) for f in files]
+        )
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, 'a.txt'), 'w') as f:
+                f.write('content')
+            runner = CliRunner()
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--skip', '--dry-run'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            mock_client.return_value.get_or_create_topic.assert_not_called()
+            mock_client.return_value.send_files.assert_not_called()
+            self.assertIn('[dry-run]', result.output)
+            self.assertNotIn('would create', result.output)
+            self.assertIn('a.txt', result.output)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_depth_one_expands(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        ids = {'SubA': 11, 'SubB': 22}
+
+        async def mock_find_topic(entity, title):
+            return ids.get(title, 99)
+        mock_client.return_value.find_topic.side_effect = mock_find_topic
+        mock_client.return_value.get_or_create_topic.side_effect = mock_find_topic
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, 'root.txt'), 'w') as f:
+                f.write('root')
+            for sub in ('SubA', 'SubB'):
+                sub_dir = os.path.join(temp_dir, sub)
+                os.makedirs(sub_dir)
+                with open(os.path.join(sub_dir, 'inner.txt'), 'w') as f:
+                    f.write(sub)
+            os.makedirs(os.path.join(temp_dir, 'EmptyDir'))
+            runner = CliRunner()
+            result = runner.invoke(
+                upload, ['--to', 'me', '--topic', temp_dir, '--topic-depth', '1'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            # General (root files) + SubA + SubB; empty dir skipped
+            self.assertEqual(mock_client.return_value.send_files.call_count, 3)
+            calls = mock_client.return_value.send_files.call_args_list
+            self.assertIsNone(calls[0].kwargs['reply_to'])
+            root_files = list(calls[0][0][1])
+            self.assertEqual([os.path.basename(f.path) for f in root_files], ['root.txt'])
+            by_topic = {c.kwargs['reply_to']: sorted(
+                os.path.basename(f.path) for f in list(c[0][1])) for c in calls[1:]}
+            self.assertEqual(by_topic, {11: ['inner.txt'], 22: ['inner.txt']})
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_depth_two(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        from telegram_upload.upload_files import DirectoryMarker
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        ids = {'A': 1, 'A / B': 2}
+
+        async def mock_find_topic(entity, title):
+            return ids.get(title, 99)
+        mock_client.return_value.find_topic.side_effect = mock_find_topic
+        mock_client.return_value.get_or_create_topic.side_effect = mock_find_topic
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, 'root.txt'), 'w') as f:
+                f.write('root')
+            os.makedirs(os.path.join(temp_dir, 'A', 'B', 'C'))
+            with open(os.path.join(temp_dir, 'A', 'a.txt'), 'w') as f:
+                f.write('a')
+            with open(os.path.join(temp_dir, 'A', 'B', 'b.txt'), 'w') as f:
+                f.write('b')
+            with open(os.path.join(temp_dir, 'A', 'B', 'C', 'c.txt'), 'w') as f:
+                f.write('c')
+            runner = CliRunner()
+            result = runner.invoke(
+                upload, ['--to', 'me', '--topic', temp_dir, '--topic-depth', '2'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(mock_client.return_value.send_files.call_count, 3)
+            calls = mock_client.return_value.send_files.call_args_list
+            self.assertIsNone(calls[0].kwargs['reply_to'])
+            self.assertEqual(calls[1].kwargs['reply_to'], 1)
+            self.assertEqual(calls[2].kwargs['reply_to'], 2)
+            a_files = [os.path.basename(f.path) for f in list(calls[1][0][1])
+                       if not isinstance(f, DirectoryMarker)]
+            self.assertEqual(a_files, ['a.txt'])
+            b_items = list(calls[2][0][1])
+            b_names = ['DIR:' + f.file_name if isinstance(f, DirectoryMarker)
+                       else os.path.basename(f.path) for f in b_items]
+            self.assertEqual(b_names, ['b.txt', 'DIR:C', 'c.txt'])
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
     def test_exclusive(self, m1, m2):
         runner = CliRunner()
         result = runner.invoke(upload, ['missing_file.txt', '--thumbnail-file', 'cara128.png', '--no-thumbnail'])

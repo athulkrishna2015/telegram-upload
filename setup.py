@@ -93,7 +93,7 @@ def get_platform_classifiers(platform):
 
 # paths
 here = os.path.abspath(os.path.dirname(__file__))
-readme = glob.glob('{}/{}*'.format(here, 'README'))[0]
+readme = os.path.join(here, 'README.md')
 scripts = [os.path.join('scripts', os.path.basename(script)) for script in glob.glob('{}/scripts/*'.format(here))]
 
 # Package data
@@ -124,6 +124,7 @@ setup(
 
     description=__doc__.replace('\n', ' '),
     long_description=open(readme, 'r').read(),
+    long_description_content_type='text/markdown',
     keywords=KEYWORDS,
     download_url=PACKAGE_DOWNLOAD_URL,
 

@@ -11,7 +11,8 @@ from telegram_upload.client import TelegramManagerClient, get_message_file_attri
 from telegram_upload.config import default_config, CONFIG_FILE
 from telegram_upload.download_files import KeepDownloadSplitFiles, JoinDownloadSplitFiles
 from telegram_upload.exceptions import catch
-from telegram_upload.upload_files import NoDirectoriesFiles, RecursiveFiles, NoLargeFiles, SplitFiles, is_valid_file
+from telegram_upload.upload_files import NoDirectoriesFiles, RecursiveFiles, NoLargeFiles, SplitFiles, \
+    is_valid_file, DirectoryMarker
 from telegram_upload.utils import async_to_sync, amap, sync_to_async_iterator
 
 
@@ -154,8 +155,17 @@ class MutuallyExclusiveOption(click.Option):
               help='Distribute files among destinations instead of broadcasting all files to all destinations.')
 @click.option('--skip', '-s', is_flag=True,
               help='Skip already uploaded files in the chat (channel, topic or group).')
+@click.option('--dry-run', is_flag=True,
+              help='Show what would be uploaded (destinations, topics, files, skips) '
+                   'without sending anything or creating topics.')
+@click.option('--topic-depth', type=int, default=None,
+              help='Split a -t folder into per-folder topics up to N levels deep '
+                   '(level-1 topics use the folder name, nested ones "Parent / Child"). '
+                   'Deeper folders become pinned messages and root-level files go to '
+                   'General. Without it, the folder uploads into a single topic.')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, recursive, large_files, caption,
-           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute, skip):
+           no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute, skip, dry_run,
+           topic_depth):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
@@ -182,12 +192,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     elif not to:
         to = ('me',)
 
-    def wrap_files(paths):
-        paths = filter(lambda file: is_valid_file(file, lambda message: click.echo(message, err=True)), paths)
-        paths = DIRECTORY_MODES[directories](client, paths)
-        if directories == 'fail':
-            # Validate now
-            paths = list(paths)
+    def finalize_files(items):
         if no_thumbnail:
             thumbnail = False
         elif thumbnail_file:
@@ -195,15 +200,23 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         else:
             thumbnail = None
         files_cls = LARGE_FILE_MODES[large_files]
-        paths = files_cls(client, paths, caption=caption, thumbnail=thumbnail, force_file=force_file)
+        paths = files_cls(client, items, caption=caption, thumbnail=thumbnail, force_file=force_file)
         if large_files == 'fail':
             # Validate now
             paths = list(paths)
         if sort and natsorted:
-            paths = natsorted(paths, key=lambda x: x.name)
+            paths = natsorted(paths, key=lambda x: getattr(x, 'path', None) or getattr(x, 'name', ''))
         elif sort:
-            paths = sorted(paths, key=lambda x: x.name)
+            paths = sorted(paths, key=lambda x: getattr(x, 'path', None) or getattr(x, 'name', ''))
         return list(paths)
+
+    def wrap_files(paths):
+        paths = filter(lambda file: is_valid_file(file, lambda message: click.echo(message, err=True)), paths)
+        paths = DIRECTORY_MODES[directories](client, paths)
+        if directories == 'fail':
+            # Validate now
+            paths = list(paths)
+        return finalize_files(paths)
 
     # destinations pairing logic
     destinations = []
@@ -233,24 +246,84 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         raise click.UsageError('The number of --to and --topic arguments must be multiples '
                               'of each other (e.g. 2 groups for 4 topics).')
 
+    verified_topics = set()
+    topic_labels = []
+    topic_is_new = []
+
+    def resolve_topic(dest, top):
+        """Resolve a topic to its id without side effects in dry-run mode.
+
+        Returns (value, label, is_new). In dry-run, missing topics resolve to
+        None with a '(would create)' label instead of being created.
+        """
+        if top and os.path.isdir(str(top)):
+            name = os.path.basename(str(top).rstrip('/\\'))
+        elif top and not str(top).isdigit():
+            name = str(top)
+        else:
+            name = None
+        if name is not None:
+            if dry_run:
+                found = async_to_sync(client.find_topic(dest, name))
+                if found is not None:
+                    return found, f'topic "{name}" (id {found})', False
+                return None, f'topic "{name}" (would create)', True
+            return async_to_sync(client.get_or_create_topic(dest, name)), f'topic "{name}"', False
+        if top:
+            top = int(top)
+            if (dest, top) not in verified_topics:
+                if not async_to_sync(client.check_topic_exists(dest, top)):
+                    click.echo(f'Warning: Topic ID {top} not found in {dest}. '
+                               f'Upload may end up in General thread.', err=True)
+                verified_topics.add((dest, top))
+            return top, f'topic {top}', False
+        return None, 'main chat', False
+
+    def dry_run_report(dest, top, label, is_new, current_files):
+        from telegram_upload.upload_files import DirectoryMarker
+        if is_new or not skip:
+            plan = []
+            for f in current_files:
+                if isinstance(f, DirectoryMarker):
+                    plan.append(('announce' if not album else 'ignored', f))
+                else:
+                    plan.append(('upload', f))
+        else:
+            try:
+                plan = client.plan_files(dest, current_files, reply_to=top,
+                                         skip=True, send_as_media=album)
+            except Exception as e:
+                click.echo(f'[dry-run] to {dest} {label}: could not read history ({e}); '
+                           f'assuming all files would upload.')
+                plan = [('upload', f) for f in current_files
+                        if not isinstance(f, DirectoryMarker)]
+        uploads = [f for action, f in plan if action == 'upload']
+        skipped = [f for action, f in plan if action == 'skip']
+        announces = [f for action, f in plan if action == 'announce']
+        total = sum(getattr(f, 'file_size', 0) or 0 for f in uploads)
+        click.echo(f'[dry-run] to {dest} {label}: {len(uploads)} to upload '
+                   f'({total} bytes), {len(skipped)} skipped, {len(announces)} announcements')
+        for f in uploads:
+            click.echo(f'[dry-run]   upload {getattr(f, "path", f)} '
+                       f'({getattr(f, "file_size", "?")} bytes)')
+        for f in skipped:
+            click.echo(f'[dry-run]   skip {f.file_name} (already uploaded)')
+        for f in announces:
+            click.echo(f'[dry-run]   announce+pin \U0001F4C2 {f.file_name}')
+
+    split_active = topic_depth is not None
+    split_depth = topic_depth if topic_depth is not None else 1
+    if split_active and split_depth < 1:
+        raise click.UsageError('--topic-depth must be >= 1.')
+
     if distribute:
         # Equal distribution
         destinations = []
-        verified_topics = set()
         for t, top in raw_destinations:
-            if top and os.path.isdir(str(top)):
-                top_name = os.path.basename(str(top).rstrip('/\\'))
-                top = async_to_sync(client.get_or_create_topic(t, top_name))
-            elif top and not str(top).isdigit():
-                top = async_to_sync(client.get_or_create_topic(t, top))
-            elif top:
-                top = int(top)
-                if (t, top) not in verified_topics:
-                    if not async_to_sync(client.check_topic_exists(t, top)):
-                        click.echo(f'Warning: Topic ID {top} not found in {t}. '
-                                   f'Upload may end up in General thread.', err=True)
-                    verified_topics.add((t, top))
+            top, label, is_new = resolve_topic(t, top)
             destinations.append((t, top))
+            topic_labels.append(label)
+            topic_is_new.append(is_new)
 
         all_files = wrap_files(files)
         if len(all_files) % len(destinations) != 0:
@@ -278,40 +351,102 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
             # Single destination with topic
             target_files = [','.join(files)] if files else [None]
 
-        verified_topics = set()
         for (t, top), f in zip(raw_destinations, target_files):
             paths = []
             if top and os.path.isdir(str(top)):
                 top_path = str(top)
-                top_name = os.path.basename(top_path.rstrip('/\\'))
-                top = async_to_sync(client.get_or_create_topic(t, top_name))
+                if not f and split_active:
+                    # Folders up to `split_depth` levels become topics (nested
+                    # ones named "Parent / Child"); deeper folders become pinned
+                    # messages; root-level files go to General.
+                    if directories == 'fail':
+                        directories = 'recursive'
+                    topic_dirs = []  # (relative name parts, abs path)
+                    topic_abs = set()
+
+                    def collect(base, rel):
+                        try:
+                            children = sorted(os.scandir(base), key=lambda e: e.name)
+                        except OSError:
+                            return
+                        for child in children:
+                            if child.is_dir():
+                                child_rel = rel + (child.name,)
+                                if len(child_rel) <= split_depth:
+                                    topic_dirs.append((child_rel, child.path))
+                                    topic_abs.add(child.path)
+                                    collect(child.path, child_rel)
+
+                    def pruned(base):
+                        try:
+                            children = sorted(os.scandir(base), key=lambda e: e.name)
+                        except OSError:
+                            return
+                        for child in children:
+                            if child.is_file():
+                                yield child.path
+                        for child in children:
+                            if child.is_dir():
+                                if child.path in topic_abs:
+                                    continue
+                                yield DirectoryMarker(child.path)
+                                yield from pruned(child.path)
+
+                    def finalize_pruned(base):
+                        items = []
+                        for item in pruned(base):
+                            if isinstance(item, DirectoryMarker):
+                                items.append(item)
+                            elif is_valid_file(item, lambda m: click.echo(m, err=True)):
+                                items.append(item)
+                        return finalize_files(items)
+
+                    collect(top_path, ())
+                    root_group = finalize_pruned(top_path)
+                    if root_group:
+                        destinations.append((t, None))
+                        topic_labels.append('General')
+                        topic_is_new.append(False)
+                        file_groups.append(root_group)
+                    for rel, dir_path in topic_dirs:
+                        group = finalize_pruned(dir_path)
+                        if not group:
+                            continue
+                        name = rel[0] if len(rel) == 1 else ' / '.join(rel)
+                        value, label, is_new = resolve_topic(
+                            t, dir_path if len(rel) == 1 else name)
+                        destinations.append((t, value))
+                        topic_labels.append(label)
+                        topic_is_new.append(is_new)
+                        file_groups.append(group)
+                    continue
                 if not f:
                     # Pick files from folder
                     paths = [top_path]
                     if directories == 'fail':
                         directories = 'recursive'
-            elif top and not str(top).isdigit():
-                top = async_to_sync(client.get_or_create_topic(t, top))
-            elif top:
-                top = int(top)
-                if (t, top) not in verified_topics:
-                    if not async_to_sync(client.check_topic_exists(t, top)):
-                        click.echo(f'Warning: Topic ID {top} not found in {t}. '
-                                   f'Upload may end up in General thread.', err=True)
-                    verified_topics.add((t, top))
+            top, label, is_new = resolve_topic(t, top)
 
             if f:
                 paths.extend([f] if os.path.lexists(f) else f.split(','))
 
             destinations.append((t, top))
+            topic_labels.append(label)
+            topic_is_new.append(is_new)
             file_groups.append(wrap_files(paths))
     else:
         # Single destination: send all files
         destinations = raw_destinations
         file_groups = [wrap_files(files)]
+        for _, top in raw_destinations:
+            topic_labels.append('main chat' if top is None else f'topic {top}')
+            topic_is_new.append(False)
 
     for i, (dest, top) in enumerate(destinations):
         current_files = file_groups[i]
+        if dry_run:
+            dry_run_report(dest, top, topic_labels[i], topic_is_new[i], current_files)
+            continue
         
         # Check if files in this group were already used in a previous group (for re-seek)
         # This is unlikely in strict targeted mode but possible if the same file is listed twice

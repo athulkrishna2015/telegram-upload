@@ -40,6 +40,7 @@ sys.path.append(os.path.abspath(os.path.join(directory, '../')))
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
+    'myst_parser',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx_click.ext'
@@ -51,7 +52,7 @@ extensions = [
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = '.md'
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -65,7 +66,7 @@ copyright = u"%i, Nekmo Com" % datetime.date.today().year
 
 pdf_documents = [('index', u'rst2pdf', u'Telegram Upload', u'Nekmo'), ]
 
-rinoh_documents = [('index',            # top-level file (index.rst)
+rinoh_documents = [('index',            # top-level file (index.md)
                     'target',           # output (target.pdf)
                     'Telegram Upload',   # document title
                     'Nekmo')]   # document author

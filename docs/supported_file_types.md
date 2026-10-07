@@ -1,163 +1,162 @@
 
-.. _supported_file_types:
 
-Supported file types
-====================
+# Supported file types
+
 Telegram-upload supports uploading of any file type supported by Telegram. This includes all common image formats,
 video, audio, and document files. But some file types supports extra features like video streaming or audio playback.
 
 This document describes the supported file types and their features. The files are downloaded from
-`filesamples.com <https://filesamples.com/>`_ using the ``supported_file_types.py`` script in the ``docs`` folder.
+[filesamples.com](https://filesamples.com/) using the `supported_file_types.py` script in the `docs` folder.
 
-Keep in mind that the results may differ across platforms and Telegram clients. You can contribute by making a `pull
-request to the repository <https://github.com/Nekmo/telegram-upload/pulls>`_.
+Keep in mind that the results may differ across platforms and Telegram clients. You can contribute by making a [pull
+request to the repository](https://github.com/Nekmo/telegram-upload/pulls).
 
-Video file types
-----------------
+## Video file types
+
 The following section shows the supported video file types and their features. This features includes:
 
-* **Metadata:** The file metadata is extracted correctly using `Hachoir <https://hachoir.readthedocs.io/en/latest/>`_.
+* **Metadata:** The file metadata is extracted correctly using [Hachoir](https://hachoir.readthedocs.io/en/latest/).
 * **Video playback:** The video can be played in Telegram.
 * **Video streaming:** The video can be streamed while it is being downloaded.
 
 The default file name is *"sample_960x400_ocean_with_audio"* with 960x400 resolution and audio.
 
-3gp
-~~~
+### 3gp
+
 Third Generation Partnership Project.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-asf
-~~~
+### asf
+
 Advanced Systems Format.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-avi
-~~~
+### avi
+
 Audio Video Interleave.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-f4v
-~~~
+### f4v
+
 Flash Video.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-flv
-~~~
+### flv
+
 Flash Video.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-hevc
-~~~~
+### hevc
+
 High Efficiency Video Coding.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-m2ts
-~~~~
+### m2ts
+
 MPEG-2 Transport Stream.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-m2v
-~~~
+### m2v
+
 MPEG-2 Video.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-m4v
-~~~
+### m4v
+
 MPEG-4 Video.
 
 * **Metadata:** Yes.
 * **Video playback:** Yes.
 * **Video streaming:** Yes.
 
-mkv
-~~~
+### mkv
+
 Matroska Multimedia Container.
 
 * **Metadata:** Yes.
 * **Video playback:** Yes.
 * **Video streaming:** No.
 
-mov
-~~~
+### mov
+
 QuickTime File Format.
 
 * **Metadata:** Yes.
 * **Video playback:** Yes.
 * **Video streaming:** Yes.
 
-mp4
-~~~
+### mp4
+
 MPEG-4 Part 14.
 
 * **Metadata:** Yes.
 * **Video playback:** Yes.
 * **Video streaming:** Yes.
 
-mjpeg
-~~~~~
+### mjpeg
+
 Motion JPEG.
 
-Error uploading the file. See the `issue #204 <https://github.com/Nekmo/telegram-upload/issues/204>`_
+Error uploading the file. See the [issue #204](https://github.com/Nekmo/telegram-upload/issues/204)
 
-mpeg
-~~~~
+### mpeg
+
 MPEG-1 Video.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-mpg
-~~~
+### mpg
+
 MPEG-1 Video.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-mts
-~~~
+### mts
+
 MPEG-2 Transport Stream.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-mxf
-~~~
+### mxf
+
 Material Exchange Format.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-ogv
-~~~
+### ogv
+
 Ogg Video.
 
 * **Metadata:** Yes.
@@ -180,43 +179,43 @@ MPEG-2 Transport Stream.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-vob
-~~~
+### vob
+
 DVD Video Object.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-webm
-~~~~
+### webm
+
 WEB Media.
 
 * **Metadata:** Yes.
 * **Video playback:** Yes.
 * **Video streaming:** No.
 
-wmv
-~~~
+### wmv
+
 Windows Media Video.
 
 * **Metadata:** Yes.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-wtv
-~~~
+### wtv
+
 Windows Media Center TV.
 
 * **Metadata:** No.
 * **Video playback:** No.
 * **Video streaming:** No.
 
-Audio file types
-----------------
+## Audio file types
+
 The following section shows the supported audio file types and their features. This features includes:
 
-* **Metadata:** The file metadata is extracted correctly using `Hachoir <https://hachoir.readthedocs.io/en/latest/>`_.
+* **Metadata:** The file metadata is extracted correctly using [Hachoir](https://hachoir.readthedocs.io/en/latest/).
 * **Detected as audio:** The file is detected as audio by Telegram.
 * **Audio playback in Telegram desktop:** The audio can be played in Telegram desktop.
 * **Audio playback in Telegram Android:** The audio can be played in Telegram android.
@@ -226,8 +225,8 @@ under *Android 13* (Google Pixel 6a).
 
 The default file name is *"sample4"* with *4 minutes and 4 seconds* of duration.
 
-8svx
-~~~~
+### 8svx
+
 8-Bit Sampled Voice.
 
 * **Metadata:** No.
@@ -235,8 +234,8 @@ The default file name is *"sample4"* with *4 minutes and 4 seconds* of duration.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-acc
-~~~
+### acc
+
 Advanced Audio Coding.
 
 * **Metadata:** No.
@@ -244,8 +243,8 @@ Advanced Audio Coding.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-ac3
-~~~
+### ac3
+
 Audio Codec 3.
 
 * **Metadata:** No.
@@ -253,8 +252,8 @@ Audio Codec 3.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-aiff
-~~~~
+### aiff
+
 Audio Interchange File Format.
 
 * **Metadata:** Yes.
@@ -262,8 +261,8 @@ Audio Interchange File Format.
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** No.
 
-amb
-~~~
+### amb
+
 Ambisonic B-Format.
 
 * **Metadata:** Yes.
@@ -280,8 +279,8 @@ Sun Microsystems AUdio.
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** No.
 
-avr
-~~~
+### avr
+
 Audio Visual Research.
 
 * **Metadata:** No.
@@ -289,8 +288,8 @@ Audio Visual Research.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-caf
-~~~
+### caf
+
 Apple Core Audio File.
 
 * **Metadata:** No.
@@ -298,8 +297,8 @@ Apple Core Audio File.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-cdda
-~~~~
+### cdda
+
 GSM 06.10 Lossy Speech Compression
 
 * **Metadata:** No.
@@ -307,8 +306,8 @@ GSM 06.10 Lossy Speech Compression
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-cvs
-~~~
+### cvs
+
 Continuously Variable Slope Delta modulation.
 
 * **Metadata:** No.
@@ -316,8 +315,8 @@ Continuously Variable Slope Delta modulation.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-cvsd
-~~~~
+### cvsd
+
 Continuously Variable Slope Delta modulation.
 
 * **Metadata:** No.
@@ -325,8 +324,8 @@ Continuously Variable Slope Delta modulation.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-cvu
-~~~
+### cvu
+
 Continuously Variable Slope Delta modulation.
 
 * **Metadata:** No.
@@ -334,8 +333,8 @@ Continuously Variable Slope Delta modulation.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-dts
-~~~
+### dts
+
 Digital Surround Audio
 
 * **Metadata:** No.
@@ -343,8 +342,8 @@ Digital Surround Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-dvms
-~~~~
+### dvms
+
 Variable Slope Delta Modulation Audio
 
 * **Metadata:** No.
@@ -352,8 +351,8 @@ Variable Slope Delta Modulation Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-fap
-~~~
+### fap
+
 PARIS Audio File Format
 
 * **Metadata:** No.
@@ -361,8 +360,8 @@ PARIS Audio File Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-flac
-~~~~
+### flac
+
 Free Lossless Audio Codec
 
 * **Metadata:** Yes.
@@ -370,8 +369,8 @@ Free Lossless Audio Codec
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** Yes.
 
-fssd
-~~~~
+### fssd
+
 FSSD Sound
 
 * **Metadata:** No.
@@ -379,8 +378,8 @@ FSSD Sound
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-gsrt
-~~~~
+### gsrt
+
 Grandstream Ring-tone Files
 
 * **Metadata:** No.
@@ -388,8 +387,8 @@ Grandstream Ring-tone Files
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-hcom
-~~~~
+### hcom
+
 Macintosh HCOM files
 
 * **Metadata:** No.
@@ -397,8 +396,8 @@ Macintosh HCOM files
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-htk
-~~~
+### htk
+
 HTK
 
 * **Metadata:** No.
@@ -406,8 +405,8 @@ HTK
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-ima
-~~~
+### ima
+
 Disk Image
 
 * **Metadata:** No.
@@ -415,8 +414,8 @@ Disk Image
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-ircam
-~~~~~
+### ircam
+
 Ircam Audio File
 
 * **Metadata:** No.
@@ -424,8 +423,8 @@ Ircam Audio File
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-m4a
-~~~
+### m4a
+
 MPEG-4 Apple Lossless Audio Codec
 
 * **Metadata:** Yes.
@@ -433,8 +432,8 @@ MPEG-4 Apple Lossless Audio Codec
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** No.
 
-m4r
-~~~
+### m4r
+
 iTunes Ringtone File
 
 * **Metadata:** Yes.
@@ -442,8 +441,8 @@ iTunes Ringtone File
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-maud
-~~~~
+### maud
+
 Amiga MAUD Audio Format
 
 * **Metadata:** No.
@@ -451,8 +450,8 @@ Amiga MAUD Audio Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-mp2
-~~~
+### mp2
+
 MPEG-1/2 Audio Layer 2 Format
 
 * **Metadata:** Yes.
@@ -460,8 +459,8 @@ MPEG-1/2 Audio Layer 2 Format
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** Partially (no audio) but the progress bar works.
 
-mp3
-~~~
+### mp3
+
 MPEG-1 Audio Layer-3
 
 * **Metadata:** Yes.
@@ -469,8 +468,8 @@ MPEG-1 Audio Layer-3
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** Yes.
 
-nist
-~~~~
+### nist
+
 NIST (National Institute of Standards and Technology)
 
 * **Metadata:** No.
@@ -478,8 +477,8 @@ NIST (National Institute of Standards and Technology)
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-oga
-~~~
+### oga
+
 OGG Vorbis Audio
 
 * **Metadata:** No.
@@ -487,8 +486,8 @@ OGG Vorbis Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** Yes.
 
-ogg
-~~~
+### ogg
+
 Ogg Vorbis Compressed Audio
 
 * **Metadata:** Yes.
@@ -496,8 +495,8 @@ Ogg Vorbis Compressed Audio
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** Yes.
 
-opus
-~~~~
+### opus
+
 Opus Audio
 
 * **Metadata:** Yes.
@@ -505,8 +504,8 @@ Opus Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** Yes.
 
-paf
-~~~
+### paf
+
 PARIS Audio File Format
 
 * **Metadata:** No.
@@ -514,8 +513,8 @@ PARIS Audio File Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-prc
-~~~
+### prc
+
 Psion Record Format
 
 * **Metadata:** No.
@@ -523,8 +522,8 @@ Psion Record Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-pvf
-~~~
+### pvf
+
 Portable Voice Format
 
 * **Metadata:** No.
@@ -541,8 +540,8 @@ RealPlayer Audio
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** No.
 
-sd2
-~~~
+### sd2
+
 Sound Designer 2
 
 * **Metadata:** No.
@@ -550,8 +549,8 @@ Sound Designer 2
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-sln
-~~~
+### sln
+
 Asterisk PBX
 
 * **Metadata:** No.
@@ -559,8 +558,8 @@ Asterisk PBX
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-smp
-~~~
+### smp
+
 Turtle Beach SampleVision File Format
 
 * **Metadata:** No.
@@ -568,8 +567,8 @@ Turtle Beach SampleVision File Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-snd
-~~~
+### snd
+
 MS-DOS Audio
 
 * **Metadata:** Yes.
@@ -577,8 +576,8 @@ MS-DOS Audio
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** No.
 
-sndr
-~~~~
+### sndr
+
 MS-DOS 90's Audio
 
 * **Metadata:** No.
@@ -586,8 +585,8 @@ MS-DOS 90's Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-sndt
-~~~~
+### sndt
+
 MS-DOS 90's Audio
 
 * **Metadata:** No.
@@ -595,8 +594,8 @@ MS-DOS 90's Audio
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-sou
-~~~
+### sou
+
 Solution User Options
 
 * **Metadata:** No.
@@ -604,8 +603,8 @@ Solution User Options
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-sph
-~~~
+### sph
+
 SPeech HEader Resources
 
 * **Metadata:** No.
@@ -613,8 +612,8 @@ SPeech HEader Resources
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-spx
-~~~
+### spx
+
 Speex Audio Compression Format
 
 * **Metadata:** No.
@@ -622,8 +621,8 @@ Speex Audio Compression Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-tta
-~~~
+### tta
+
 Free Lossless True Audio Codec
 
 * **Metadata:** No.
@@ -631,8 +630,8 @@ Free Lossless True Audio Codec
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-txw
-~~~
+### txw
+
 Yamaha TX-16W sampler
 
 * **Metadata:** No.
@@ -640,8 +639,8 @@ Yamaha TX-16W sampler
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-vms
-~~~
+### vms
+
 Dreamcast Visual Memory System File
 
 * **Metadata:** No.
@@ -649,8 +648,8 @@ Dreamcast Visual Memory System File
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-voc
-~~~
+### voc
+
 Creative Labs Audio File
 
 * **Metadata:** No.
@@ -658,8 +657,8 @@ Creative Labs Audio File
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-vox
-~~~
+### vox
+
 Dialogic Voice Audio File
 
 * **Metadata:** No.
@@ -667,8 +666,8 @@ Dialogic Voice Audio File
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-w64
-~~~
+### w64
+
 Sonic Foundry's 64-bit RIFF/WAV Format
 
 * **Metadata:** No.
@@ -676,8 +675,8 @@ Sonic Foundry's 64-bit RIFF/WAV Format
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-wav
-~~~
+### wav
+
 Waveform Audio File Format
 
 * **Metadata:** Yes.
@@ -685,8 +684,8 @@ Waveform Audio File Format
 * **Audio playback in Telegram desktop:** Yes.
 * **Audio playback in Telegram Android:** Yes.
 
-wma
-~~~
+### wma
+
 Microsoft Windows Media Audio Format
 
 * **Metadata:** Yes.
@@ -703,8 +702,8 @@ WavPack
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
 
-wve
-~~~
+### wve
+
 Wondershare Filmora Project File
 
 * **Metadata:** No.
