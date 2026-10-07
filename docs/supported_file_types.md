@@ -710,3 +710,7 @@ Wondershare Filmora Project File
 * **Detected as audio:** No.
 * **Audio playback in Telegram desktop:** No.
 * **Audio playback in Telegram Android:** No.
+
+## See also
+
+See [Usage](usage.md) for upload options and [Troubleshooting](troubleshooting.md) if a video uploads as a document or cannot stream.

@@ -85,7 +85,16 @@ $ telegram-download --interactive  # Interactive download
 
 ## Documentation and development
 
-See the [documentation index](https://github.com/athulkrishna2015/telegram-upload/tree/master/docs) for installation, complete usage, architecture, and troubleshooting guides. Contributor setup and test instructions are in the [contributing guide](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/contributing.md).
+Guides:
+
+* [Installation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/installation.md) — install this checkout, PyPI, GitHub, or Docker.
+* [Usage](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) — CLI workflows, folder-topic mapping, dry-run, skip, and resume.
+* [Architecture](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/architecture.md) — planning, upload pipeline, and state map.
+* [Troubleshooting](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/troubleshooting.md) — diagnose install, topic, upload, and performance issues.
+* [Caption format](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/caption_format.md) — caption variables for uploaded files.
+* [Supported file types](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/supported_file_types.md) — media feature matrix.
+* [Upload benchmarks](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/upload_benchmark.md) — parallelism measurements.
+* [Contributing](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/contributing.md) — development setup and running tests.
 
 Run unit tests locally:
 

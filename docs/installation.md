@@ -55,3 +55,8 @@ $ docker run --rm \
 ```
 
 Confirm the Docker image contains the required options with `upload --help`; an image built from an older release may not include checkout-specific features.
+
+## Next steps
+
+* [Usage](usage.md) — full CLI workflows after installing.
+* [Troubleshooting](troubleshooting.md) — fix install, authentication, and upload problems.

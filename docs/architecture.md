@@ -274,3 +274,9 @@ $ git diff --check
 ```
 
 Mocks validate local routing and request construction. For a real Telegram integration check, use a disposable destination, inspect resulting message IDs/topic reply metadata and media attributes, and clean up only messages created by that test.
+
+## See also
+
+* [Usage](usage.md) — CLI workflows, forum-topic folder mapping, and dry-run examples.
+* [Installation](installation.md) — installing this checkout with the documented options.
+* [Troubleshooting](troubleshooting.md) — diagnosing failed uploads, resume, and rate limits.

@@ -107,7 +107,7 @@ Example output:
 
 Dry run is a planning aid, not a guarantee that Telegram will accept every file or topic operation when the real upload runs.
 
-For implementation details on planning, skip matching, progress state, and module responsibilities, see [Architecture](architecture.md).
+If the preview or upload does not behave as expected, see [Troubleshooting](troubleshooting.md). For implementation details on planning, skip matching, progress state, and module responsibilities, see [Architecture](architecture.md).
 
 ## Interactive mode
 

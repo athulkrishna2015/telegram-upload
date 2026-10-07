@@ -151,3 +151,9 @@ $ uv tool install --python 3.11 --force .
 When reporting a reproducible issue, include the command with private paths/identifiers redacted, Python version, operating system, package version, and sanitized error traceback. Never attach Telegram session/config files or disclose `api_hash` values.
 
 Before opening a ticket, check the [existing issues](https://github.com/Nekmo/telegram-upload/issues). For project development, run the test suite documented in [Contributing](contributing.md).
+
+## See also
+
+* [Usage](usage.md) — option reference and folder-topic workflows.
+* [Architecture](architecture.md) — planning, skip matching, and resume internals.
+* [Installation](installation.md) — installing the checkout with these features.

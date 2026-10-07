@@ -139,3 +139,5 @@ of parallel chunks. Unlike the previous tables, all the data is included.
 
 
 The results are also available in the `docs` directory in the `upload_benchmark.json` file.
+
+See [Troubleshooting](troubleshooting.md) for current parallelism defaults and rate-limit guidance, and [Usage](usage.md) for the related environment variables.

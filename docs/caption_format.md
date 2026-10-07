@@ -189,3 +189,5 @@ string attribute `{file.stem}` (with the value `my file name`), but you can use 
   characters at the beginning of the string.
 * `{file.stem.rstrip}`: remove the trailing characters. For example `my file name`. Like strip but only remove the
   characters at the end of the string.
+
+See [Usage](usage.md) for `--caption` examples and the [Architecture](architecture.md) notes on how captions are attached to uploads.
