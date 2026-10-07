@@ -3,7 +3,6 @@ include docs/CONTRIBUTING.md
 include docs/HISTORY.md
 include LICENSE
 include README.md
-include docs/README_from_rst.md
 include common-requirements.txt
 include py2-requirements.txt
 include py3-requirements.txt

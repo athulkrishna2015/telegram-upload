@@ -51,7 +51,7 @@ $ docker run --rm \
     -v /media/data:/files \
     -v "$PWD/config:/config" \
     -it nekmo/telegram-upload:master \
-    upload --to my_group -t /files/Xylem_LPUP --topic-depth 1 --dry-run
+    upload --to my_group -t /files/course --topic-depth 1 --dry-run
 ```
 
 Confirm the Docker image contains the required options with `upload --help`; an image built from an older release may not include checkout-specific features.

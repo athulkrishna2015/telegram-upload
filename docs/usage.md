@@ -38,7 +38,7 @@ The entity can be defined in multiple ways:
 
 * **Username or groupname**: use the public username or groupname. For example: *john*.
 * **Public link**: the public user or group link. For example: *https://telegram.dog/john*.
-* **Private link**: the private group link. For example: *telegram.me/joinchat/AAAAAEkk2WdoDrB4-Q8-gg*.
+* **Private link**: the private group link. For example: *telegram.me/joinchat/&lt;invite-hash&gt;*.
 * **Telephone**: the user telephone. For example: *+34600000000*.
 * **Telegram id**: the user or group telegram id. Use a bot like *@getidsbot* for get the id. For example: *-987654321*
   or *123456789*.
@@ -72,7 +72,7 @@ Use `--topic-depth N` to map a source directory's hierarchy to forum topics. The
 `N` must be an integer greater than or equal to 1. Without `--topic-depth`, a `-t` directory continues to mean one topic named after the source directory. For example:
 
 ```text
-Xylem_LPUP/
+course/
 ├── root-index.txt
 └── CHEMISTRY/
     ├── overview.mp4
@@ -86,10 +86,10 @@ The same rule applies at each folder level. For a tree `Root/A/B/C/file.txt`, `-
 
 ```console
 # Preview destinations, topic creation, uploads, skips, and folder announcements
-$ telegram-upload --to my_group -t "/data/Xylem_LPUP" --topic-depth 1 --sort --skip --dry-run
+$ telegram-upload --to my_group -t "/data/course" --topic-depth 1 --sort --skip --dry-run
 
 # Run the upload; --skip is useful if you need to rerun after completed files
-$ telegram-upload --to my_group -t "/data/Xylem_LPUP" --topic-depth 1 --sort --skip
+$ telegram-upload --to my_group -t "/data/course" --topic-depth 1 --sort --skip
 ```
 
 ### Dry run
@@ -101,7 +101,7 @@ Example output:
 ```text
 [dry-run] to my_group General: 1 to upload (1024 bytes), 0 skipped, 0 announcements
 [dry-run] to my_group topic "CHEMISTRY" (would create): 2 to upload (12345 bytes), 0 skipped, 1 announcements
-[dry-run]   upload /data/Xylem_LPUP/CHEMISTRY/lesson.mp4 (12000 bytes)
+[dry-run]   upload /data/course/CHEMISTRY/lesson.mp4 (12000 bytes)
 [dry-run]   announce+pin 📂 INTRODUCTION
 ```
 

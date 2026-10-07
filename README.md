@@ -1,4 +1,4 @@
-![logo](https://raw.githubusercontent.com/Nekmo/telegram-upload/master/assets/logo.png)
+![logo](https://raw.githubusercontent.com/athulkrishna2015/telegram-upload/master/assets/logo.png)
 
 [![pip-rating badge](https://raw.githubusercontent.com/Nekmo/telegram-upload/pip-rating-badge/pip-rating-badge.svg)](https://github.com/Nekmo/telegram-upload/actions/workflows/pip-rating.yml)
 [![Latest Tests CI build status](https://img.shields.io/github/actions/workflow/status/Nekmo/telegram-upload/test.yml?style=flat-square&maxAge=2592000&branch=master)](https://github.com/Nekmo/telegram-upload/actions?query=workflow%3ATests)
@@ -34,13 +34,13 @@ You can also install the upstream master branch from GitHub:
 $ uv tool install --python 3.11 https://github.com/Nekmo/telegram-upload/archive/refs/heads/master.zip
 ```
 
-More installation options, including [Docker](#-docker), are available in the [📕 documentation](https://docs.nekmo.org/telegram-upload/installation.html).
+More installation options, including Docker, are available in the [📕 installation guide](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/installation.md).
 
-![demo](https://raw.githubusercontent.com/Nekmo/telegram-upload/master/assets/telegram-upload-demo.gif)
+![demo](https://raw.githubusercontent.com/athulkrishna2015/telegram-upload/master/assets/telegram-upload-demo.gif)
 
 ## ❓ Quick start
 
-To use this program you need an Telegram account and your **App api_id & api_hash** (get it in [my.telegram.org](https://my.telegram.org/)). The first time you use telegram-upload it requests your 📱 **telephone**, **api_id** and **api_hash**. Bot tokens can not be used with this program (bot uploads are limited to 50MB).
+To use this program you need a Telegram account and your **App api_id & api_hash** (get it in [my.telegram.org](https://my.telegram.org/)). The first time you use telegram-upload it requests your 📱 **telephone**, **api_id** and **api_hash**. Bot tokens can not be used with this program (bot uploads are limited to 50MB).
 
 To **send ⬆️ files** (by default it is uploaded to saved messages):
 
@@ -54,7 +54,7 @@ You can **download ⤵️ the files** again from your saved messages (by default
 $ telegram-download
 ```
 
-[Read the documentation](https://docs.nekmo.org/telegram-upload/usage.html#telegram-download) for more info about the options availables.
+[Read the documentation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md) for more info about the options available.
 
 ### Preview and upload a folder tree to forum topics
 
@@ -81,7 +81,7 @@ $ telegram-upload --interactive    # Interactive upload
 $ telegram-download --interactive  # Interactive download
 ```
 
-[More info in the documentation](https://docs.nekmo.org/telegram-upload/usage.html#interactive-mode)
+[More info in the documentation](https://github.com/athulkrishna2015/telegram-upload/blob/master/docs/usage.md#interactive-mode)
 
 ## Documentation and development
 
@@ -128,4 +128,4 @@ $ docker run -v /media/data/:/files/
 
 This project developed by [Nekmo](https://github.com/Nekmo) & [collaborators](https://github.com/Nekmo/telegram-upload/graphs/contributors) would not be possible without [Telethon](https://github.com/LonamiWebs/Telethon), the library used as a Telegram client.
 
-Telegram-upload is licensed under the [MIT license](https://github.com/Nekmo/telegram-upload/blob/master/LICENSE).
+Telegram-upload is licensed under the [MIT license](https://github.com/athulkrishna2015/telegram-upload/blob/master/LICENSE).
