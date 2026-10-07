@@ -159,10 +159,10 @@ class TelegramUploadClient(TelegramClient):
             return []
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
-                            forward=(), reply_to=None, skip=False):
+                            forward=(), reply_to=None, skip=False, stats=None):
         for files_group in grouper(ALBUM_FILES, files):
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
-                                    reply_to=reply_to, skip=skip)
+                                    reply_to=reply_to, skip=skip, stats=stats)
             if media:
                 async_to_sync(self._send_album_media_resilient(entity, media, reply_to=reply_to))
 
@@ -239,9 +239,9 @@ class TelegramUploadClient(TelegramClient):
         )
 
     def send_one_file(self, entity, file: File, send_as_media: bool = False, thumb: Optional[str] = None,
-                      retries=RETRIES, reply_to=None):
+                      retries=RETRIES, reply_to=None, position=None):
         message = None
-        progress, bar = get_progress_bar('Uploading', file.file_name, file.file_size)
+        progress, bar = get_progress_bar('Uploading', file.file_name, file.file_size, position)
 
         try:
             try:
@@ -255,11 +255,13 @@ class TelegramUploadClient(TelegramClient):
         except FloodWaitError as e:
             click.echo(f'{e}. Waiting for {e.seconds} seconds.', err=True)
             time.sleep(e.seconds)
-            message = self.send_one_file(entity, file, send_as_media, thumb, retries, reply_to=reply_to)
+            message = self.send_one_file(entity, file, send_as_media, thumb, retries, reply_to=reply_to,
+                                           position=position)
         except RPCError as e:
             if retries > 0:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. Retrying...', err=True)
-                message = self.send_one_file(entity, file, send_as_media, thumb, retries - 1, reply_to=reply_to)
+                message = self.send_one_file(entity, file, send_as_media, thumb, retries - 1,
+                                           reply_to=reply_to, position=position)
             else:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. It will not be retried.', err=True)
         return message
@@ -326,14 +328,20 @@ class TelegramUploadClient(TelegramClient):
         return plan
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
-                   forward=(), send_as_media: bool = False, reply_to=None, skip=False):
+                   forward=(), send_as_media: bool = False, reply_to=None, skip=False, stats=None):
         plan = self.plan_files(entity, files, reply_to=reply_to, skip=skip,
                                send_as_media=send_as_media)
         if not plan:
             raise MissingFileError('Files do not exist.')
+        if stats is not None:
+            stats.update(uploaded=0, skipped=0, failed=0, announced=0, ignored=0, bytes=0)
+        total_uploads = sum(1 for action, _ in plan if action == 'upload')
         messages = []
+        position = 0
         for action, file in plan:
             if action == 'ignored':
+                if stats is not None:
+                    stats['ignored'] += 1
                 continue
             if action == 'announce':
                 # Send subfolder name and pin it
@@ -347,13 +355,19 @@ class TelegramUploadClient(TelegramClient):
                 except RPCError:
                     # Might fail if not enough permissions
                     pass
+                if stats is not None:
+                    stats['announced'] += 1
                 continue
             if action == 'skip':
                 click.echo(f'Skipping "{file.file_name}" as it is already uploaded.')
+                if stats is not None:
+                    stats['skipped'] += 1
                 continue
+            position += 1
             thumb = file.get_thumbnail()
             try:
-                message = self.send_one_file(entity, file, send_as_media, thumb=thumb, reply_to=reply_to)
+                message = self.send_one_file(entity, file, send_as_media, thumb=thumb, reply_to=reply_to,
+                                             position=(position, total_uploads))
             finally:
                 if isinstance(file, File):
                     file.close()
@@ -361,6 +375,8 @@ class TelegramUploadClient(TelegramClient):
                     os.remove(thumb)
             if message is None:
                 click.echo('Failed to upload file "{}"'.format(file.file_name), err=True)
+                if stats is not None:
+                    stats['failed'] += 1
             if message and print_file_id:
                 click.echo('Uploaded successfully "{}" (file_id {})'.format(file.file_name,
                                                                             pack_bot_file_id(message.media)))
@@ -370,6 +386,9 @@ class TelegramUploadClient(TelegramClient):
             if message:
                 self.forward_to(message, forward)
                 messages.append(message)
+                if stats is not None:
+                    stats['uploaded'] += 1
+                    stats['bytes'] += getattr(file, 'file_size', 0) or 0
         return messages
 
     async def upload_file(

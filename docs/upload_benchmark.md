@@ -1,133 +1,37 @@
-
-
 # Upload benchmarks
 
-The following results are a study about the performance of Telegram-upload uploading files. The results are not
-intended to be exhaustive and are subject to errors for multiple reasons. Some of them are:
+Upload speed depends on Telegram server load, your network, hardware, and machine load — so benchmark on your own
+connection instead of trusting old numbers. (Historical result tables and graphs were removed from the repo because
+they predated the current parallelism defaults.)
 
-* The Telegram status *(e.g. the server load)* at the time of the test.
-* The network status at the time of the test *(the contracted bandwidth is 600 Mibps)*.
-* The hardware used for the test *(in my case a PC with an Intel i7-3770K CPU @ 3.50GHz and 20 GiB of RAM)*.
-* The machine load at the time of the test.
+## What to tune
 
-The tests were performed using different file sizes. The file sizes were 512 KiB, 20 MiB, 200 MiB and 2 GiB. The chunk
-size was the default in Telegram-upload. The chunk size vary depending on the file size:
+* `TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS` (default `8`): file chunks uploaded in parallel. More chunks can raise
+  throughput and CPU use, but also increases 429/rate-limit errors.
+* `TELEGRAM_UPLOAD_MAX_CONNECTIONS` (default `1`): parallel TCP connections. Raising it can trigger Flood Wait.
 
-* *128 KiB* for files smaller than *100 MiB*.
-* *256 KiB* for files smaller than *750 MiB*.
-* *512 KiB* for files bigger than *750 MiB*.
+Telegram picks the part size from the file size (larger files use larger parts, up to 512 KiB). Start at the
+defaults and change one variable at a time.
 
-The tests were performed using different number of parallel chunks uploaded at the same time. By default
-Telegram-upload uploads *4 chunks at the same time*. You can change this value using the `PARALLEL_UPLOAD_BLOCKS`
-environment variable. For example:
 ```console
-$ PARALLEL_UPLOAD_BLOCKS=2 telegram-upload video.mkv
+$ TELEGRAM_UPLOAD_PARALLEL_UPLOAD_BLOCKS=4 telegram-upload video.mkv
 ```
 
-Or exporting the variable:
-```console
-$ export PARALLEL_UPLOAD_BLOCKS=2
-$ telegram-upload video.mkv
-```
+## Run your own benchmark
 
-Note that increasing the number of parallel chunks uploaded at the same time will increase the CPU usage and can
-increase the number of 429 errors. These errors are caused by Telegram after exceeding the server's resource limits.
+The `upload_benchmark.py` script in `docs/` uploads a file with your account and times it:
 
-These tests can help you to choose the best number of parallel chunks uploaded at the same time for your use case. All
-the tests were performed using 1, 2, 3, 4, 5, 6, 7, 8, 9 and 10 parallel chunks uploaded at the same time.
-
-You can run the tests yourself using the `upload_benchmark.py` script in the `docs` directory. This script will
-upload a file to Telegram using your account and will measure the time it takes to upload the file. To run the script:
 ```console
 $ python3 ./upload_benchmark.py benchmark
 ```
 
-This script will create a `upload_benchmark.json` file in the `docs` directory with the results. You can use the
-`upload_benchmark.py` script to plot the results using the `graphs` command:
+Results land in `upload_benchmark.json` (git-ignored working data, not committed). Plot them and regenerate the
+Markdown tables with:
+
 ```console
 $ python3 ./upload_benchmark.py graphs
-```
-
-The above command will create the images in the same directory. For create the Markdown tables you can use the `md`
-command:
-```console
 $ python3 ./upload_benchmark.py md
 ```
 
-The following results were obtained using the `upload_benchmark.py` script.
-
-
-## Small files (512 KiB)
-
-The following table shows the time it takes to upload a 512 KiB file using different number of parallel chunks.
-See the full results table in [benchmark_512.0_KiB.md](benchmark_512.0_KiB.md).
-
-
-Each file is **uploaded 10 times** to obtain the minimum, maximum, the average and the median time. The data can be
-visualized in the following graph:
-
-![512.0 KiB benchmark graph](benchmark_512.0_KiB.png)
-
-Observing the results from 4 blocks in parallel there is no improvement in the upload time. This is because the file
-size is 512 KiB and the chunk size is 128 KiB. This means that the file is uploaded in 4 chunks
-*(512 KiB / 128 KiB = 4)*. The small ups and downs are due to external factors.
-
-
-## Medium files (20 MiB)
-
-The following table shows the time it takes to upload a 20 MiB file using different number of parallel chunks.
-See the full results table in [benchmark_20.0_MiB.md](benchmark_20.0_MiB.md).
-
-
-Each file is **uploaded 10 times** to obtain the minimum, maximum, the average and the median time. The data can be
-visualized in the following graph:
-
-![20.0 MiB benchmark graph](benchmark_20.0_MiB.png)
-
-The speed boost decreases following a negative exponential curve. The improvement between 1 and 2 parts in parallel is
-noticeable. Increasing the number of parts in parallel the improvement is less and less. With this file size the chunk
-size is 128 KiB.
-
-
-## Big files (200 MiB)
-
-The following table shows the time it takes to upload a 200 MiB file using different number of parallel chunks.
-See the full results table in [benchmark_200.0_MiB.md](benchmark_200.0_MiB.md).
-
-
-Each file is **uploaded 5 times** to obtain the minimum, maximum, the average and the median time. The data can be
-visualized in the following graph:
-
-![200.0 MiB benchmark graph](benchmark_200.0_MiB.png)
-
-The speed boost decreases following a negative exponential curve. The improvement between 1 and 2 parts in parallel is
-noticeable. Increasing the number of parts in parallel the improvement is less and less. With this file size the chunk
-size is 256 KiB.
-
-
-## Full size files (2 GiB)
-
-The following table shows the time it takes to upload a 2 GiB file using different number of parallel chunks.
-See the full results table in [benchmark_2.0_GiB.md](benchmark_2.0_GiB.md).
-
-
-Each file is **uploaded 5 times** to obtain the minimum, maximum, the average and the median time. The data can be
-visualized in the following graph:
-
-![2.0 GiB benchmark graph](benchmark_2.0_GiB.png)
-
-The speed boost decreases following a negative exponential curve. The improvement between 1 and 2 parts in parallel is
-noticeable. Increasing the number of parts in parallel the improvement is less and less. With this file size the chunk
-size is 512 KiB.
-
-
-## Complete results
-
-The following table shows the time it takes to upload a 512 KiB, 20 MiB, 200 MiB and 2 GiB files using different number
-of parallel chunks. Unlike the previous tables, all the data is included. See the full results table in
-[benchmark_full.md](benchmark_full.md).
-
-
-The results are also available in the `docs` directory in the `upload_benchmark.json` file.
-
-See [Troubleshooting](troubleshooting.md) for current parallelism defaults and rate-limit guidance, and [Usage](usage.md) for the related environment variables.
+See [Troubleshooting](troubleshooting.md) for rate-limit guidance and [Configuration](configuration.md) for the
+retry-related variables.

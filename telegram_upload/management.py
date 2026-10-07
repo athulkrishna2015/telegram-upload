@@ -2,6 +2,7 @@
 
 """Console script for telegram-upload."""
 import os
+import time
 
 import click
 from telethon.tl.types import User
@@ -442,11 +443,22 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
             topic_labels.append('main chat' if top is None else f'topic {top}')
             topic_is_new.append(False)
 
+    from telegram_upload.client.progress_bar import format_duration
+    from telegram_upload.utils import sizeof_fmt
+    started = time.time()
+    totals = {'uploaded': 0, 'skipped': 0, 'failed': 0, 'announced': 0, 'bytes': 0}
     for i, (dest, top) in enumerate(destinations):
         current_files = file_groups[i]
         if dry_run:
             dry_run_report(dest, top, topic_labels[i], topic_is_new[i], current_files)
             continue
+        if len(destinations) > 1:
+            n_files = sum(1 for f in current_files if not isinstance(f, DirectoryMarker))
+            n_bytes = sum(getattr(f, 'file_size', 0) or 0 for f in current_files
+                          if not isinstance(f, DirectoryMarker))
+            files_word = 'file' if n_files == 1 else 'files'
+            click.echo(f'[{i + 1}/{len(destinations)}] → {dest} {topic_labels[i]} '
+                       f'— {n_files} {files_word} ({sizeof_fmt(n_bytes, suffix="B")})')
         
         # Check if files in this group were already used in a previous group (for re-seek)
         # This is unlikely in strict targeted mode but possible if the same file is listed twice
@@ -465,10 +477,22 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         if isinstance(dest, str) and dest.lstrip("-+").isdigit():
             dest = int(dest)
 
+        stats = {}
         if album:
-            client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip)
+            client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top,
+                                       skip=skip, stats=stats)
         else:
-            client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip)
+            client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip,
+                              stats=stats)
+        for key in ('uploaded', 'skipped', 'failed', 'announced', 'bytes'):
+            totals[key] += stats.get(key, 0)
+
+    if not dry_run:
+        elapsed = format_duration(time.time() - started)
+        destinations_word = 'destination' if len(destinations) == 1 else 'destinations'
+        click.echo(f'Done in {elapsed} — {totals["uploaded"]} uploaded '
+                   f'({sizeof_fmt(totals["bytes"], suffix="B")}), {totals["skipped"]} skipped, '
+                   f'{totals["failed"]} failed across {len(destinations)} {destinations_word}.')
 
 
 @click.command()

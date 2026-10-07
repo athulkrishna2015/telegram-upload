@@ -37,6 +37,9 @@ The project uses Telethon. Use the repository's `TelegramManagerClient` for live
 ### Safety rules
 
 - Never print or copy `api_hash`, phone numbers, session strings, or session-file contents.
+- Never commit real chat/group IDs to the repo. Live-test destinations live in the gitignored `.test-groups.json`
+  at the repo root (keys like `test_group`); read IDs from that file at runtime and never paste them into docs,
+  tests, or commit messages.
 - Use a disposable test album in Saved Messages by default. Do not delete or modify existing user messages.
 - Use a real destination only when the user explicitly authorizes the upload.
 - Record the message IDs created by a live test and delete only those IDs during cleanup.

@@ -86,7 +86,8 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         mock_files = [MagicMock(), MagicMock()]
         self.client.send_files_as_album(entity, mock_files)
         mock_send_files.assert_called_once_with(
-            entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False
+            entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False,
+            stats=None
         )
         mock_send_album_media.assert_called_once_with(entity, mock_send_files.return_value, reply_to=None)
 
@@ -241,6 +242,30 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.client._get_upload_history = AsyncMock(return_value=[history_message])
         plan = self.client.plan_files('foo', [file], skip=True)
         self.assertEqual([action for action, _ in plan], ['skip'])
+
+    def test_send_files_reports_stats(self):
+        from telegram_upload.upload_files import DirectoryMarker
+        file = File(MagicMock(max_caption_length=200), self.upload_file_path)
+        marker = DirectoryMarker('/path/to/subdir')
+        self.client.send_one_file = Mock(return_value=MagicMock())
+        self.client.send_message = Mock()
+        self.client.pin_message = Mock()
+        history_message = SimpleNamespace(
+            media=object(), document=object(), text='logo',
+            file=SimpleNamespace(name='logo.png', size=os.path.getsize(self.upload_file_path))
+        )
+        self.client._get_upload_history = AsyncMock(return_value=[history_message])
+        stats = {}
+        self.client.send_files('foo', [file, marker], skip=True, stats=stats)
+        self.assertEqual(stats['skipped'], 1)
+        self.assertEqual(stats['announced'], 1)
+        self.assertEqual(stats['uploaded'], 0)
+        stats = {}
+        self.client.send_one_file = Mock(return_value=MagicMock())
+        self.client.send_files('foo', [file], stats=stats)
+        self.assertEqual(stats['uploaded'], 1)
+        self.assertEqual(stats['bytes'], os.path.getsize(self.upload_file_path))
+        self.assertEqual(stats['failed'], 0)
 
     def test_send_files_data_loss(self):
         mock_client = MagicMock(max_caption_length=200)

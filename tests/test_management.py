@@ -444,6 +444,28 @@ class TestUpload(unittest.TestCase):
 
     @patch('telegram_upload.management.default_config')
     @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_multi_destination_headers_and_summary(self, mock_client: MagicMock, _: MagicMock):
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+        test_file1 = os.path.join(directory, 'file1.txt')
+        test_file2 = os.path.join(directory, 'file2.txt')
+
+        import sys
+        original_argv = sys.argv
+        sys.argv = ['telegram-upload', '--to', 'me', test_file1, '--to', 'you', test_file2]
+        try:
+            runner = CliRunner()
+            result = runner.invoke(upload, ['--to', 'me', test_file1, '--to', 'you', test_file2])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn('[1/2]', result.output)
+            self.assertIn('[2/2]', result.output)
+            self.assertIn('Done in', result.output)
+            self.assertIn('across 2 destinations', result.output)
+        finally:
+            sys.argv = original_argv
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
     def test_exclusive(self, m1, m2):
         runner = CliRunner()
         result = runner.invoke(upload, ['missing_file.txt', '--thumbnail-file', 'cara128.png', '--no-thumbnail'])

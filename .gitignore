@@ -72,3 +72,6 @@ tests/Test_Topic_Folder/
 tests/dist1.txt
 tests/dist2.txt
 tests/normal.txt
+
+# Local live-test destinations (chat IDs must not be committed)
+.test-groups.json

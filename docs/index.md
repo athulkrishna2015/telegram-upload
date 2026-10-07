@@ -44,11 +44,6 @@ troubleshooting
 caption_format
 supported_file_types
 upload_benchmark
-benchmark_512.0_KiB
-benchmark_20.0_MiB
-benchmark_200.0_MiB
-benchmark_2.0_GiB
-benchmark_full
 contributing
 authors
 history
