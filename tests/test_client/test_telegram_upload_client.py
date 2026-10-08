@@ -199,6 +199,20 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.assertEqual(5, self.client._send_topic_message.call_args[0][2])
         self.client.pin_message.assert_called_once_with(entity, self.client._send_topic_message.return_value)
 
+    def test_skip_does_not_reannounce_existing_folder_marker(self):
+        from telegram_upload.upload_files import DirectoryMarker
+        marker = DirectoryMarker('/path/to/INTRODUCTION')
+        existing = SimpleNamespace(media=None, text='📂 **INTRODUCTION**', document=None)
+        self.client._get_upload_history = AsyncMock(return_value=[existing])
+        self.client.send_message = Mock()
+        self.client.pin_message = Mock()
+
+        plan = self.client.plan_files('chat', [marker], reply_to=144, skip=True)
+        self.assertEqual([action for action, _ in plan], ['skip_announcement'])
+        self.client.send_files('chat', [marker], reply_to=144, skip=True)
+        self.client.send_message.assert_not_called()
+        self.client.pin_message.assert_not_called()
+
     def test_send_files_skips_photo_history_by_caption(self):
         file = File(MagicMock(max_caption_length=200), self.upload_file_path)
         history_message = SimpleNamespace(

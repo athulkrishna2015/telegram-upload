@@ -285,7 +285,9 @@ class TelegramUploadClient(TelegramClient):
         key = (str(entity), reply_to)
         if key not in self._upload_history_cache:
             self._upload_history_cache[key] = [
-                message async for message in self.iter_messages(entity, reply_to=reply_to) if message.media
+                message async for message in self.iter_messages(entity, reply_to=reply_to)
+                if message.media or (message.text and message.text.startswith('📂 **') and
+                                     message.text.endswith('**'))
             ]
         return self._upload_history_cache[key]
 
@@ -306,6 +308,7 @@ class TelegramUploadClient(TelegramClient):
         and by --dry-run to preview what would happen.
         """
         from telegram_upload.upload_files import DirectoryMarker
+        folder_names = set()
         if skip and upload_log is None:
             history = async_to_sync(self._get_upload_history(entity, reply_to))
             existing_files = set()
@@ -319,17 +322,29 @@ class TelegramUploadClient(TelegramClient):
             photo_names = self._photo_history_names(history)
             photo_stems = {os.path.splitext(name)[0] for name in photo_names}
             document_caption_stems = {os.path.splitext(name)[0] for name, _ in document_captions}
+            for message in history:
+                text = getattr(message, 'text', '') or ''
+                if text.startswith('📂 **') and text.endswith('**'):
+                    folder_names.add(text[4:-2])
         else:
             existing_files = set()
             document_captions = set()
             document_caption_stems = set()
             photo_names = set()
             photo_stems = set()
+            folder_names = set()
 
         plan = []
         for file in files:
             if isinstance(file, DirectoryMarker):
-                plan.append(('announce' if not send_as_media else 'ignored', file))
+                if send_as_media:
+                    plan.append(('ignored', file))
+                elif ((skip and upload_log is None and file.file_name in folder_names) or
+                      (skip and upload_log is not None and
+                       upload_log.contains(entity, reply_to, f'📂 {file.file_name}', 0))):
+                    plan.append(('skip_announcement', file))
+                else:
+                    plan.append(('announce', file))
                 continue
             file_stem = os.path.splitext(file.file_name)[0]
             is_photo = get_file_mime(file.path) == 'image'
@@ -363,6 +378,10 @@ class TelegramUploadClient(TelegramClient):
                 if stats is not None:
                     stats['ignored'] += 1
                 continue
+            if action == 'skip_announcement':
+                if stats is not None:
+                    stats['skipped'] += 1
+                continue
             if action == 'announce':
                 # Send subfolder name and pin it
                 message = f"📂 **{file.file_name}**"
@@ -377,6 +396,8 @@ class TelegramUploadClient(TelegramClient):
                     pass
                 if stats is not None:
                     stats['announced'] += 1
+                if upload_log is not None:
+                    upload_log.record(entity, reply_to, f'📂 {file.file_name}', 0)
                 continue
             if action == 'skip':
                 click.echo(f'Skipping "{file.file_name}" as it is already uploaded.')

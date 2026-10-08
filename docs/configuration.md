@@ -13,6 +13,14 @@ or `--skip --upload-log-file PATH` to select a cache location. The cache records
 destination/topic/name/size tuples, is not seeded from Telegram, and does not detect remote deletions. The default
 cache name is reserved and excluded from recursive uploads.
 
+To build a fresh cache from existing Telegram history without uploading anything, run
+`tools/build_upload_log.py` (it replaces the target log file):
+
+```console
+$ uv run --isolated --python 3.11 --with-requirements requirements.txt python tools/build_upload_log.py \
+    --to my_group -t /data/course --topic-depth 1
+```
+
 Protect all three. Never publish them or paste their contents into logs or tickets. Copying the JSON + session to
 another machine transfers the login; prefer a dedicated session per machine. `--config` selects an alternate config
 file. To run concurrent uploads, duplicate the session/config pair and pass `--config` per process.
