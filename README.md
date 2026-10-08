@@ -73,7 +73,8 @@ wizard, and rerun the same command to resume interrupted files or `--skip` compl
 
 ## Notes
 
-* `--skip` matches by filename/size per destination; interrupted files resume from local progress state.
+* With `--skip`, `.telegram-upload-log.json` in the source folder caches successful files by destination, topic, name,
+  and size; it is excluded from uploads. Interrupted files resume separately from part progress.
 * Never share `~/.config/telegram-upload.json`, `*.session` files, or your `api_hash`.
 
 Run unit tests locally:

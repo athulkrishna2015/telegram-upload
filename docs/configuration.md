@@ -8,6 +8,11 @@
 | `~/.config/telegram-upload.session` | Telethon login session. Only one process may hold it at a time. |
 | `~/.config/telegram-upload-progress.json` | Per-file uploaded-part records for resume; entries are removed on completion. |
 
+Local upload caching is opt-in. Use `--skip --upload-log` to create `.telegram-upload-log.json` in the source folder,
+or `--skip --upload-log-file PATH` to select a cache location. The cache records successful
+destination/topic/name/size tuples, is not seeded from Telegram, and does not detect remote deletions. The default
+cache name is reserved and excluded from recursive uploads.
+
 Protect all three. Never publish them or paste their contents into logs or tickets. Copying the JSON + session to
 another machine transfers the login; prefer a dedicated session per machine. `--config` selects an alternate config
 file. To run concurrent uploads, duplicate the session/config pair and pass `--config` per process.

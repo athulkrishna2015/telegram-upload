@@ -19,6 +19,8 @@ from telegram_upload.video import get_video_thumb, video_metadata
 
 mimetypes.init()
 
+UPLOAD_LOG_FILENAME = '.telegram-upload-log.json'
+
 
 if TYPE_CHECKING:
     from telegram_upload.client import TelegramManagerClient
@@ -111,6 +113,8 @@ class RecursiveFiles(UploadFilesBase):
 
     def get_iterator(self):
         for file in self.files:
+            if os.path.basename(file) == UPLOAD_LOG_FILENAME:
+                continue
             if os.path.isdir(file):
                 yield from self._recursive_worker(file)
             else:
@@ -120,7 +124,7 @@ class RecursiveFiles(UploadFilesBase):
         # Send files first
         entries = sorted(list(os.scandir(path)), key=lambda x: x.name)
         for entry in entries:
-            if entry.is_file():
+            if entry.is_file() and entry.name != UPLOAD_LOG_FILENAME:
                 yield entry.path
         # Then subdirectories
         for entry in entries:

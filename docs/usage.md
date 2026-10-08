@@ -35,7 +35,9 @@ Saved Messages unless `--to` selects another destination.
 | `--sort` | Sort files by name (natural sort if `natsort` is installed). |
 | `-t, --topic TEXT` | Forum topic id, name, or folder path. Repeatable; pairs with `--to` and positional files. |
 | `--distribute` | Split files across destinations instead of sending all files everywhere. |
-| `-s, --skip` | Skip files whose name and size already exist in the destination. |
+| `-s, --skip` | Skip files whose name/size already exists in Telegram destination history (default skip mode). |
+| `--upload-log` | With `--skip`, opt in to a local cache at `<source-folder>/.telegram-upload-log.json` instead of Telegram history. |
+| `--upload-log-file PATH` | With `--skip`, opt in to this local cache file instead (implies `--upload-log`). The cache itself is never uploaded. |
 | `--dry-run` | Preview planned destinations, topics, uploads, skips, and announcements without sending or creating topics. |
 | `--topic-depth INTEGER` | Treat a `-t` directory as a folder tree: folders up to this depth (≥ 1) become topics; deeper folders become pinned announcements; root files go to General. |
 | `--help` | Show the help message and exit. |

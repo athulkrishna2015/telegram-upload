@@ -13,8 +13,9 @@ from telegram_upload.config import default_config, CONFIG_FILE
 from telegram_upload.download_files import KeepDownloadSplitFiles, JoinDownloadSplitFiles
 from telegram_upload.exceptions import catch
 from telegram_upload.upload_files import NoDirectoriesFiles, RecursiveFiles, NoLargeFiles, SplitFiles, \
-    is_valid_file, DirectoryMarker
+    is_valid_file, DirectoryMarker, UPLOAD_LOG_FILENAME
 from telegram_upload.utils import async_to_sync, amap, sync_to_async_iterator
+from telegram_upload.upload_log import UploadLog
 
 
 try:
@@ -163,10 +164,14 @@ class MutuallyExclusiveOption(click.Option):
               help='Split a -t folder into per-folder topics up to N levels deep '
                    '(level-1 topics use the folder name, nested ones "Parent / Child"). '
                    'Deeper folders become pinned messages and root-level files go to '
-                   'General. Without it, the folder uploads into a single topic.')
+                    'General. Without it, the folder uploads into a single topic.')
+@click.option('--upload-log', is_flag=True,
+              help='With --skip, use a local upload cache at <source-folder>/.telegram-upload-log.json.')
+@click.option('--upload-log-file', type=click.Path(dir_okay=False), default=None,
+              help='Use this local upload-cache file with --skip (implies --upload-log).')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, recursive, large_files, caption,
            no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute, skip, dry_run,
-           topic_depth):
+           topic_depth, upload_log, upload_log_file):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
@@ -192,6 +197,24 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         to = (async_to_sync(interactive_select_dialog(client)),)
     elif not to:
         to = ('me',)
+
+    if upload_log_file and not skip:
+        raise click.UsageError('--upload-log-file requires --skip.')
+    if upload_log and not skip:
+        raise click.UsageError('--upload-log and --upload-log-file require --skip.')
+    if upload_log_file:
+        upload_log_path = upload_log_file
+    elif upload_log:
+        source_folder = next((str(value) for value in topic if os.path.isdir(str(value))), None)
+        if source_folder is None:
+            source_folder = next((str(value) for value in files if os.path.isdir(str(value))), None)
+        if not source_folder:
+            raise click.UsageError('--upload-log needs a source folder; use --upload-log-file PATH instead.')
+        upload_log_path = os.path.join(source_folder, UPLOAD_LOG_FILENAME)
+        click.echo(f'Using local upload log: {upload_log_path}')
+    else:
+        upload_log_path = None
+    upload_log = UploadLog(upload_log_path) if upload_log_path else None
 
     def finalize_files(items):
         if no_thumbnail:
@@ -289,10 +312,13 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                     plan.append(('announce' if not album else 'ignored', f))
                 else:
                     plan.append(('upload', f))
+        elif upload_log is not None:
+            plan = client.plan_files(dest, current_files, reply_to=top, skip=True,
+                                     send_as_media=album, upload_log=upload_log)
         else:
             try:
                 plan = client.plan_files(dest, current_files, reply_to=top,
-                                         skip=True, send_as_media=album)
+                                         skip=True, send_as_media=album, upload_log=upload_log)
             except Exception as e:
                 click.echo(f'[dry-run] to {dest} {label}: could not read history ({e}); '
                            f'assuming all files would upload.')
@@ -384,7 +410,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
                         except OSError:
                             return
                         for child in children:
-                            if child.is_file():
+                            if child.is_file() and child.name != UPLOAD_LOG_FILENAME:
                                 yield child.path
                         for child in children:
                             if child.is_dir():
@@ -480,10 +506,10 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         stats = {}
         if album:
             client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top,
-                                       skip=skip, stats=stats)
+                                       skip=skip, stats=stats, upload_log=upload_log)
         else:
             client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip,
-                              stats=stats)
+                              stats=stats, upload_log=upload_log)
         for key in ('uploaded', 'skipped', 'failed', 'announced', 'bytes'):
             totals[key] += stats.get(key, 0)
 

@@ -87,7 +87,7 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.client.send_files_as_album(entity, mock_files)
         mock_send_files.assert_called_once_with(
             entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False,
-            stats=None
+            stats=None, upload_log=None
         )
         mock_send_album_media.assert_called_once_with(entity, mock_send_files.return_value, reply_to=None)
 
@@ -242,6 +242,26 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.client._get_upload_history = AsyncMock(return_value=[history_message])
         plan = self.client.plan_files('foo', [file], skip=True)
         self.assertEqual([action for action, _ in plan], ['skip'])
+
+    def test_local_upload_log_skips_without_history_scan(self):
+        from telegram_upload.upload_log import UploadLog
+        from telegram_upload.upload_files import File
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            log = UploadLog(os.path.join(directory, 'uploads.json'))
+            old_path = os.path.join(directory, 'old.txt')
+            with open(old_path, 'wb') as stream:
+                stream.write(b'x' * 12)
+            old_file = File(MagicMock(max_caption_length=200), old_path)
+
+            log.record('chat', 7, 'old.txt', 12)
+            first = self.client.plan_files('chat', [old_file], reply_to=7, skip=True, upload_log=log)
+            self.assertEqual([action for action, _ in first], ['skip'])
+            self.client._get_upload_history = AsyncMock()
+            second = self.client.plan_files('chat', [old_file], reply_to=7, skip=True, upload_log=log)
+            self.assertEqual([action for action, _ in second], ['skip'])
+            self.client._get_upload_history.assert_not_awaited()
 
     def test_send_files_reports_stats(self):
         from telegram_upload.upload_files import DirectoryMarker

@@ -336,7 +336,7 @@ class TestUpload(unittest.TestCase):
             return 123
         mock_client.return_value.find_topic.side_effect = mock_find_topic
         mock_client.return_value.plan_files.side_effect = (
-            lambda entity, files, reply_to=None, skip=False, send_as_media=False:
+            lambda entity, files, reply_to=None, skip=False, send_as_media=False, upload_log=None:
             [('upload', f) for f in files]
         )
 
@@ -345,13 +345,51 @@ class TestUpload(unittest.TestCase):
             with open(os.path.join(temp_dir, 'a.txt'), 'w') as f:
                 f.write('content')
             runner = CliRunner()
-            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--skip', '--dry-run'])
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--skip', '--dry-run',
+                                            '--upload-log-file', os.path.join(temp_dir, 'cache.json')])
             self.assertEqual(result.exit_code, 0, result.output)
             mock_client.return_value.get_or_create_topic.assert_not_called()
             mock_client.return_value.send_files.assert_not_called()
             self.assertIn('[dry-run]', result.output)
             self.assertNotIn('would create', result.output)
             self.assertIn('a.txt', result.output)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_skip_local_log_is_opt_in_and_excluded(self, mock_client: MagicMock, _: MagicMock):
+        import tempfile
+        import shutil
+        from telegram_upload.upload_files import RecursiveFiles, UPLOAD_LOG_FILENAME
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+        temp_dir = tempfile.mkdtemp()
+        try:
+            file_path = os.path.join(temp_dir, 'fresh.txt')
+            with open(file_path, 'w') as stream:
+                stream.write('fresh')
+            log_path = os.path.join(temp_dir, UPLOAD_LOG_FILENAME)
+            with open(log_path, 'w') as stream:
+                stream.write('{"version": 1, "uploads": []}\n')
+            files = list(RecursiveFiles(mock_client.return_value, [temp_dir]))
+            self.assertEqual(files, [file_path])
+            async def mock_find_topic(entity, title):
+                return 123
+            mock_client.return_value.find_topic.side_effect = mock_find_topic
+            mock_client.return_value.plan_files.side_effect = (
+                lambda entity, items, reply_to=None, skip=False, send_as_media=False, upload_log=None:
+                [('upload', item) for item in items]
+            )
+
+            runner = CliRunner()
+            result = runner.invoke(upload, ['--to', 'me', '--topic', temp_dir, '--skip', '--dry-run',
+                                            '--upload-log'])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn(log_path, result.output)
+            mock_client.return_value.plan_files.assert_called_once()
+            kwargs = mock_client.return_value.plan_files.call_args.kwargs
+            self.assertEqual(kwargs['upload_log'].path, log_path)
         finally:
             shutil.rmtree(temp_dir)
 

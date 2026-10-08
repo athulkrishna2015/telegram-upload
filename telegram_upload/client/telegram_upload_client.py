@@ -159,12 +159,27 @@ class TelegramUploadClient(TelegramClient):
             return []
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
-                            forward=(), reply_to=None, skip=False, stats=None):
+                            forward=(), reply_to=None, skip=False, stats=None, upload_log=None):
         for files_group in grouper(ALBUM_FILES, files):
+            files_group = tuple(files_group)
+            if stats is not None and 'uploaded' in stats:
+                previous_uploaded = stats['uploaded']
+                previous_bytes = stats['bytes']
+            else:
+                previous_uploaded = previous_bytes = 0
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
-                                    reply_to=reply_to, skip=skip, stats=stats)
+                                    reply_to=reply_to, skip=skip, stats=stats, upload_log=upload_log)
             if media:
-                async_to_sync(self._send_album_media_resilient(entity, media, reply_to=reply_to))
+                sent = async_to_sync(self._send_album_media_resilient(entity, media, reply_to=reply_to))
+                if upload_log is not None:
+                    if sent:
+                        uploaded = [file for file in files_group if isinstance(file, File)]
+                        for file in uploaded:
+                            upload_log.record(entity, reply_to, file.file_name, file.file_size)
+                    elif stats is not None:
+                        stats['failed'] += max(stats['uploaded'] - previous_uploaded, 0)
+                        stats['uploaded'] = previous_uploaded
+                        stats['bytes'] = previous_bytes
 
     def _send_file_message(self, entity, file, thumb, progress, reply_to=None):
         if reply_to and not isinstance(reply_to, types.InputReplyToMessage):
@@ -284,14 +299,14 @@ class TelegramUploadClient(TelegramClient):
         }
 
     def plan_files(self, entity, files: Iterable[File], reply_to=None, skip=False,
-                   send_as_media: bool = False):
+                   send_as_media: bool = False, upload_log=None):
         """Classify each item as ('upload' | 'skip' | 'announce' | 'ignored', file).
 
         Read-only: never sends, pins or creates anything. Used by send_files
         and by --dry-run to preview what would happen.
         """
         from telegram_upload.upload_files import DirectoryMarker
-        if skip:
+        if skip and upload_log is None:
             history = async_to_sync(self._get_upload_history(entity, reply_to))
             existing_files = set()
             document_captions = set()
@@ -318,23 +333,28 @@ class TelegramUploadClient(TelegramClient):
                 continue
             file_stem = os.path.splitext(file.file_name)[0]
             is_photo = get_file_mime(file.path) == 'image'
-            if skip and ((file.file_name, file.file_size) in existing_files or
-                         (file.file_name, file.file_size) in document_captions or
-                         (file_stem, file.file_size) in document_caption_stems or
-                         (is_photo and (file.file_name in photo_names or file_stem in photo_stems))):
+            logged = skip and upload_log is not None and upload_log.contains(
+                entity, reply_to, file.file_name, file.file_size)
+            if logged or (skip and upload_log is None and
+                          ((file.file_name, file.file_size) in existing_files or
+                          (file.file_name, file.file_size) in document_captions or
+                          (file_stem, file.file_size) in document_caption_stems or
+                          (is_photo and (file.file_name in photo_names or file_stem in photo_stems)))):
                 plan.append(('skip', file))
                 continue
             plan.append(('upload', file))
         return plan
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
-                   forward=(), send_as_media: bool = False, reply_to=None, skip=False, stats=None):
+                   forward=(), send_as_media: bool = False, reply_to=None, skip=False, stats=None,
+                   upload_log=None):
         plan = self.plan_files(entity, files, reply_to=reply_to, skip=skip,
-                               send_as_media=send_as_media)
+                               send_as_media=send_as_media, upload_log=upload_log)
         if not plan:
             raise MissingFileError('Files do not exist.')
         if stats is not None:
-            stats.update(uploaded=0, skipped=0, failed=0, announced=0, ignored=0, bytes=0)
+            for key in ('uploaded', 'skipped', 'failed', 'announced', 'ignored', 'bytes'):
+                stats.setdefault(key, 0)
         total_uploads = sum(1 for action, _ in plan if action == 'upload')
         messages = []
         position = 0
@@ -389,6 +409,8 @@ class TelegramUploadClient(TelegramClient):
                 if stats is not None:
                     stats['uploaded'] += 1
                     stats['bytes'] += getattr(file, 'file_size', 0) or 0
+                if upload_log is not None:
+                    upload_log.record(entity, reply_to, file.file_name, file.file_size)
         return messages
 
     async def upload_file(

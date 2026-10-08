@@ -31,6 +31,11 @@ $ telegram-upload --to my_group -t "/data/course" --topic-depth 1 --sort --skip 
 
 When the plan looks right, run the same command without `--dry-run`.
 
+Plain `--skip` uses Telegram history. For faster reruns, opt in to a local cache with
+`--skip --upload-log`; it creates `.telegram-upload-log.json` in the source folder. Only files successfully uploaded
+while local-cache mode is enabled are recorded. Interrupted files resume independently from their uploaded parts.
+See [Topics](topics.md) for behavior and limitations.
+
 ## Download files
 
 Fetch recent file messages from Saved Messages (default) or another chat:

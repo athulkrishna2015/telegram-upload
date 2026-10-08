@@ -54,8 +54,11 @@ Sample preview output:
 
 * `--topic-depth` must be ≥ 1. Existing topics are reused (titles match exactly); missing ones are created on real
   runs only.
-* `--skip` matches by filename/size per destination topic. A topic that would be newly created has no history, so
-  its files preview as uploads.
+* Plain `--skip` uses Telegram destination history. Add `--upload-log` to opt into a local cache at
+  `<source-folder>/.telegram-upload-log.json`, or `--upload-log-file PATH` to choose the cache file explicitly.
+* Local mode is fast and does not scan Telegram history. It records successful uploads made while local mode is
+  enabled; it cannot automatically detect earlier uploads or manual deletions from Telegram. The cache is scoped
+  by destination/topic/name/size and the reserved cache filename is excluded from recursive uploads.
 * `--skip` does not deduplicate `📂` announcements: a rerun may re-pin a heading while skipping its files.
 * Interrupted files resume from saved parts on rerun; keep the same source paths.
 * The account needs permission to send media, create topics, and pin messages for the full layout to appear as
