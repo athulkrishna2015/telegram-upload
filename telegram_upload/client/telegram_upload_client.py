@@ -196,7 +196,8 @@ class TelegramUploadClient(TelegramClient):
         return sent
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
-                            forward=(), reply_to=None, skip=False, stats=None, upload_log=None):
+                            forward=(), reply_to=None, skip=False, stats=None, upload_log=None,
+                            convert_webp=False):
         for files_group in grouper(ALBUM_FILES, files):
             files_group = tuple(files_group)
             if stats is not None and 'uploaded' in stats:
@@ -205,7 +206,8 @@ class TelegramUploadClient(TelegramClient):
             else:
                 previous_uploaded = previous_bytes = 0
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
-                                    reply_to=reply_to, skip=skip, stats=stats, upload_log=upload_log)
+                                    reply_to=reply_to, skip=skip, stats=stats, upload_log=upload_log,
+                                    convert_webp=convert_webp)
             if media:
                 sent = async_to_sync(self._send_album_media_resilient(
                     entity, media, list(files_group), reply_to=reply_to))
@@ -240,17 +242,56 @@ class TelegramUploadClient(TelegramClient):
 
     @staticmethod
     def _photo_override(file) -> 'bool | None':
-        """Return True to send webp images as photos (not stickers)."""
+        """Return True to send images as photos (not stickers/documents).
+
+        webp is *not* included: Telegram's photo endpoint rejects webp bytes
+        (PhotoExtInvalidError), so webp is converted to JPEG first and the
+        converted stream is what gets as_image=True (see _convertible_image).
+        """
         if getattr(file, 'force_file', False):
             return None
-        if get_file_mime(getattr(file, 'path', '') or '') == 'image':
+        path = getattr(file, 'path', '') or ''
+        if os.path.splitext(path)[1].lower() in ('.png', '.jpg', '.jpeg'):
             return True
         return None
 
     @staticmethod
+    def _convertible_image(file) -> bool:
+        """True when this image must be converted (webp) to join a gallery."""
+        if getattr(file, 'force_file', False):
+            return False
+        return os.path.splitext(getattr(file, 'path', '') or '')[1].lower() == '.webp'
+
+    @staticmethod
+    def _convert_to_jpeg(file) -> 'tuple[str, object] | None':
+        """Convert a webp File to a JPEG temp file. Returns (path, closer)."""
+        try:
+            from PIL import Image
+        except ImportError:
+            return None
+        src = getattr(file, 'path', '') or ''
+        try:
+            image = Image.open(src)
+            if image.mode in ('RGBA', 'LA', 'PA'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                alpha = image.getchannel('A') if image.mode in ('RGBA', 'LA') else image.convert('RGBA').getchannel('A')
+                background.paste(image.convert('RGB'), mask=alpha)
+                image = background
+            else:
+                image = image.convert('RGB')
+            import tempfile
+            tmp = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+            image.save(tmp.name, 'JPEG', quality=92)
+            tmp.close()
+            return tmp.name, lambda: os.path.exists(tmp.name) and os.unlink(tmp.name)
+        except Exception as e:
+            click.echo(f'Could not convert \"{src}\" to JPEG: {e}', err=True)
+            return None
+
+    @staticmethod
     def _mime_override(file) -> 'str | None':
         """Explicit mime so FileIO-like objects (no filename) keep their type."""
-        return {'.webp': 'image/webp'}.get(os.path.splitext(getattr(file, 'path', '') or '')[1].lower())
+        return None
 
     async def _send_file_low_level(self, entity, file: File, thumb, progress, reply_to):
         entity = await self.get_input_entity(entity)
@@ -281,41 +322,63 @@ class TelegramUploadClient(TelegramClient):
         result = await self(request)
         return self._get_response_message(request.random_id, result, entity)
 
-    async def _send_media(self, entity, file: File, progress):
+    async def _send_media(self, entity, file: File, progress, convert_webp=False):
         entity = await self.get_input_entity(entity)
         supports_streaming = False  # TODO
-        # nosound_video only affects silent videos (prevents GIF mislabel);
-        # Telethon omits it for non-videos (None), so mirror that.
-        is_video = get_file_mime(getattr(file, 'path', '') or '') == 'video'
-        fh, fm, _ = await self._file_to_media(
-            file, supports_streaming=file, progress_callback=progress,
-            force_document=file.force_file,
-            nosound_video=True if is_video else None,
-            as_image=self._photo_override(file),
-            mime_type=self._mime_override(file))
-        if isinstance(fm, types.InputMediaUploadedPhoto):
-            r = await self(functions.messages.UploadMediaRequest(
-                entity, media=fm
-            ))
-
-            fm = utils.get_input_media(r.photo)
-        elif isinstance(fm, types.InputMediaUploadedDocument):
-            r = await self(functions.messages.UploadMediaRequest(
-                entity, media=fm
-            ))
-
-            fm = utils.get_input_media(
-                r.document, supports_streaming=supports_streaming)
-
-        return types.InputSingleMedia(
-            fm,
-            message=file.file_name,
-            entities=None,
-            # random_id is autogenerated
-        )
+        # webp can't go through the photo endpoint (PhotoExtInvalidError), so
+        # with --convert-webp it is converted to JPEG first; the converted
+        # file is a real .jpg photo. Without the flag, webp goes as a
+        # document (may render as a sticker, but bytes survive untouched).
+        converted = self._convert_to_jpeg(file) if (convert_webp and self._convertible_image(file)) else None
+        send_file = file
+        cleanup = None
+        if converted:
+            converted_path, cleanup = converted
+            send_file = File(file.client, converted_path)
+            send_file._caption = file.file_caption if hasattr(file, 'file_caption') else None
+        try:
+            # nosound_video only affects silent videos (prevents GIF mislabel);
+            # Telethon omits it for non-videos (None), so mirror that.
+            is_video = get_file_mime(getattr(send_file, 'path', '') or '') == 'video'
+            fh, fm, _ = await self._file_to_media(
+                send_file, supports_streaming=send_file, progress_callback=progress,
+                force_document=send_file.force_file,
+                nosound_video=True if is_video else None,
+                as_image=self._photo_override(send_file),
+                mime_type=self._mime_override(send_file))
+            # Converted JPEG keeps the ORIGINAL filename as caption/gallery label.
+            caption = file.file_name
+            if isinstance(fm, types.InputMediaUploadedPhoto):
+                r = await self(functions.messages.UploadMediaRequest(
+                    entity, media=fm
+                ))
+                fm = utils.get_input_media(r.photo)
+            elif isinstance(fm, types.InputMediaUploadedDocument):
+                r = await self(functions.messages.UploadMediaRequest(
+                    entity, media=fm
+                ))
+                fm = utils.get_input_media(
+                    r.document, supports_streaming=supports_streaming)
+            return types.InputSingleMedia(
+                fm,
+                message=caption,
+                entities=None,
+                # random_id is autogenerated
+            )
+        finally:
+            if cleanup:
+                try:
+                    cleanup()
+                except Exception:
+                    pass
+            try:
+                if converted:
+                    send_file.close()
+            except Exception:
+                pass
 
     def send_one_file(self, entity, file: File, send_as_media: bool = False, thumb: Optional[str] = None,
-                      retries=RETRIES, reply_to=None, position=None):
+                      retries=RETRIES, reply_to=None, position=None, convert_webp=False):
         message = None
         progress, bar = get_progress_bar('Uploading', file.file_name, file.file_size, position)
 
@@ -323,7 +386,7 @@ class TelegramUploadClient(TelegramClient):
             try:
                 # TODO: remove distinction?
                 if send_as_media:
-                    message = async_to_sync(self._send_media(entity, file, progress))
+                    message = async_to_sync(self._send_media(entity, file, progress, convert_webp))
                 else:
                     message = self._send_file_message(entity, file, thumb, progress, reply_to=reply_to)
             finally:
@@ -332,12 +395,12 @@ class TelegramUploadClient(TelegramClient):
             click.echo(f'{e}. Waiting for {e.seconds} seconds.', err=True)
             time.sleep(e.seconds)
             message = self.send_one_file(entity, file, send_as_media, thumb, retries, reply_to=reply_to,
-                                           position=position)
+                                           position=position, convert_webp=convert_webp)
         except RPCError as e:
             if retries > 0:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. Retrying...', err=True)
                 message = self.send_one_file(entity, file, send_as_media, thumb, retries - 1,
-                                           reply_to=reply_to, position=position)
+                                           reply_to=reply_to, position=position, convert_webp=convert_webp)
             else:
                 click.echo(f'The file "{file.file_name}" could not be uploaded: {e}. It will not be retried.', err=True)
         return message
@@ -423,7 +486,7 @@ class TelegramUploadClient(TelegramClient):
 
     def send_files(self, entity, files: Iterable[File], delete_on_success=False, print_file_id=False,
                    forward=(), send_as_media: bool = False, reply_to=None, skip=False, stats=None,
-                   upload_log=None):
+                   upload_log=None, convert_webp=False):
         plan = self.plan_files(entity, files, reply_to=reply_to, skip=skip,
                                send_as_media=send_as_media, upload_log=upload_log)
         if not plan:
@@ -469,7 +532,7 @@ class TelegramUploadClient(TelegramClient):
             thumb = file.get_thumbnail()
             try:
                 message = self.send_one_file(entity, file, send_as_media, thumb=thumb, reply_to=reply_to,
-                                             position=(position, total_uploads))
+                                             position=(position, total_uploads), convert_webp=convert_webp)
             finally:
                 if isinstance(file, File):
                     file.close()

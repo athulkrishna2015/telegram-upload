@@ -51,7 +51,7 @@ The `✓ [n/10]` ticks are per-file upload progress, not delivered gallery messa
 
 The uploader now:
 
-* sends `webp`/image files as photos (`as_image`, explicit `image/webp` mime) so they group instead of becoming stickers;
+* with `--convert-webp`, converts `webp` images to JPEG client-side (Pillow) so they join photo galleries with the original filename kept as caption; without the flag webp uploads as a document (may render as a sticker, but bytes survive untouched);
 * sets `nosound_video` only for videos (silent clips are no longer sent as GIFs inside albums);
 * retries a rejected batch as halves, and as a last resort delivers leftover items one by one with `SendMediaRequest` (topic-safe) instead of silently dropping them — so a failed gallery degrades to single messages in the same topic rather than nothing.
 

@@ -39,6 +39,7 @@ Saved Messages unless `--to` selects another destination.
 | `--upload-log` | With `--skip`, opt in to a local cache at `<source-folder>/.telegram-upload-log.json` instead of Telegram history. |
 | `--upload-log-file PATH` | With `--skip`, opt in to this local cache file instead (implies `--upload-log`). The cache itself is never uploaded. |
 | `--dry-run` | Preview planned destinations, topics, uploads, skips, and announcements without sending or creating topics. |
+| `--convert-webp` | Convert `.webp` images to JPEG before album upload so they join photo galleries. Without it, webp uploads as a document (may render as a sticker). |
 | `--topic-depth INTEGER` | Treat a `-t` directory as a folder tree: folders up to this depth (≥ 1) become topics; deeper folders become pinned announcements; root files go to General. |
 | `--help` | Show the help message and exit. |
 

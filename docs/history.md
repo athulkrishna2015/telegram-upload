@@ -6,7 +6,7 @@
 * Forum topics: upload and download in forum topics via `--topic`/`-t` (IDs, names, and folder paths) or embedded in the destination (`--to "chat/topic"`, `--to "https://t.me/c/<id>/<topic>"`, `?thread=`/`?topic=`); automatic topic creation; multi-topic and multi-group mapping; `--distribute`; interleaved topic-file association.
 * Folder-tree uploads: `--topic-depth N` maps folder levels to topics (nested titles like `Parent / Child`), sends source-root files to General, and turns deeper folders into pinned announcements; `--dry-run` previews destinations, topics, uploads, skips, and announcements without sending.
 * Skip and resume: `--skip`/`-s` deduplication by filename/size (photo-aware, shared dry-run/send planner); per-file part resume via the progress file combined with `--skip` for completed files.
-* Upload reliability: album batch fallback to smaller albums and then single topic-safe sends (no silent drops), webp/images sent as photos with explicit mime, video-only `nosound_video`, FloodWait handling, reconnect retries, parallel-block/connection speed boost, topic-existence warnings, and recursive-upload controls.
+* Upload reliability: album batch fallback to smaller albums and then single topic-safe sends (no silent drops), opt-in `--convert-webp` to JPEG for gallery photos, video-only `nosound_video`, FloodWait handling, reconnect retries, parallel-block/connection speed boost, topic-existence warnings, and recursive-upload controls.
 * Documentation: Markdown docs migration, usage/architecture/troubleshooting guides, README quick start, and consolidated single-source README inclusion.
 
 ## 0.7.1 (2023-08-04)

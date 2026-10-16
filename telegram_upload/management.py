@@ -194,9 +194,12 @@ class MutuallyExclusiveOption(click.Option):
               help='With --skip, use a local upload cache at <source-folder>/.telegram-upload-log.json.')
 @click.option('--upload-log-file', type=click.Path(dir_okay=False), default=None,
               help='Use this local upload-cache file with --skip (implies --upload-log).')
+@click.option('--convert-webp', is_flag=True,
+               help='Convert .webp images to JPEG before upload so they join photo '
+                    'albums. Without it, webp uploads as a document (may render as a sticker).')
 def upload(files, to, config, delete_on_success, print_file_id, force_file, forward, directories, recursive, large_files, caption,
            no_thumbnail, thumbnail_file, proxy, album, interactive, sort, topic, distribute, skip, dry_run,
-           topic_depth, upload_log, upload_log_file):
+           topic_depth, upload_log, upload_log_file, convert_webp):
     """Upload one or more files to Telegram using your personal account.
     The maximum file size is 2 GiB for free users and 4 GiB for premium accounts.
     By default, they will be saved in your saved messages.
@@ -546,7 +549,7 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
         stats = {}
         if album:
             client.send_files_as_album(dest, current_files, delete, print_file_id, forward, reply_to=top,
-                                       skip=skip, stats=stats, upload_log=upload_log)
+                                       skip=skip, stats=stats, upload_log=upload_log, convert_webp=convert_webp)
         else:
             client.send_files(dest, current_files, delete, print_file_id, forward, reply_to=top, skip=skip,
                               stats=stats, upload_log=upload_log)
