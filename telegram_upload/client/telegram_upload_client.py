@@ -195,6 +195,26 @@ class TelegramUploadClient(TelegramClient):
                 click.echo(f'Skipping an invalid album item "{name}": {e}', err=True)
         return sent
 
+    async def _gather_album_media(self, entity, files, progress_factory=None, convert_webp=False):
+        """Upload-once album prep: returns (media, ok_files) without sending."""
+        media = []
+        ok_files = []
+        for file in files:
+            if isinstance(file, DirectoryMarker):
+                continue
+            progress = progress_factory(file) if progress_factory else (None, None)
+            if isinstance(progress, tuple):
+                progress, _bar = progress
+            try:
+                item = await self._send_media(entity, file, progress, convert_webp)
+            except (MediaEmptyError, RPCError) as e:
+                name = getattr(file, 'file_name', file)
+                click.echo(f'Skipping an invalid album item "{name}": {e}', err=True)
+                continue
+            media.append(item)
+            ok_files.append(file)
+        return media, ok_files
+
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
                             forward=(), reply_to=None, skip=False, stats=None, upload_log=None,
                             convert_webp=False):
@@ -205,15 +225,29 @@ class TelegramUploadClient(TelegramClient):
                 previous_bytes = stats['bytes']
             else:
                 previous_uploaded = previous_bytes = 0
-            media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
-                                    reply_to=reply_to, skip=skip, stats=stats, upload_log=upload_log,
-                                    convert_webp=convert_webp)
+            if skip:
+                plan = self.plan_files(entity, files_group, reply_to=reply_to, skip=True,
+                                       upload_log=upload_log if upload_log and upload_log.enabled else None)
+                skipped = [f for a, f in plan if a == 'skip']
+                files_group = tuple(f for a, f in plan if a == 'upload')
+                if stats is not None:
+                    stats['skipped'] = stats.get('skipped', 0) + len(skipped)
+                if not files_group:
+                    continue
+            media, ok_files = async_to_sync(self._gather_album_media(
+                entity, files_group,
+                progress_factory=lambda f: get_progress_bar('Uploading', f.file_name, f.file_size),
+                convert_webp=convert_webp))
+            if stats is not None:
+                stats['uploaded'] = previous_uploaded + len(ok_files)
+                stats['bytes'] = previous_bytes + sum(
+                    f.file_size for f in ok_files if isinstance(f, File))
             if media:
                 sent = async_to_sync(self._send_album_media_resilient(
-                    entity, media, list(files_group), reply_to=reply_to))
+                    entity, media, ok_files, reply_to=reply_to))
                 if upload_log is not None:
                     if sent:
-                        uploaded = [file for file in files_group if isinstance(file, File)]
+                        uploaded = [file for file in ok_files if isinstance(file, File)]
                         for file in uploaded:
                             upload_log.record(entity, reply_to, file.file_name, file.file_size)
                     elif stats is not None:

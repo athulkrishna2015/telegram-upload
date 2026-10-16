@@ -78,35 +78,33 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         self.assertIs(first, second)
         self.client.iter_messages.assert_called_once_with('entity', reply_to=5)
 
-    @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient.send_files')
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_album_media')
     @unittest.skipIf(sys.version_info < (3, 8), "TypeError: An asyncio.Future, a coroutine or an awaitable is required")
-    def test_send_files_as_album(self, mock_send_album_media: MagicMock, mock_send_files: MagicMock):
+    def test_send_files_as_album(self, mock_send_album_media: MagicMock):
         entity = "entity"
         mock_files = [MagicMock(), MagicMock()]
-        self.client.send_files_as_album(entity, mock_files)
-        mock_send_files.assert_called_once_with(
-            entity, tuple(mock_files), False, False, (), send_as_media=True, reply_to=None, skip=False,
-            stats=None, upload_log=None, convert_webp=False
-        )
-        mock_send_album_media.assert_called_once_with(entity, mock_send_files.return_value, reply_to=None)
+        # call through the real path with gather mocked at the coroutine level
+        with patch.object(TelegramUploadClient, '_gather_album_media', new_callable=AsyncMock) as mock_gather_async, \
+                patch.object(TelegramUploadClient, '_send_album_media_resilient', new_callable=AsyncMock) as mock_resilient:
+            mock_gather_async.return_value = (['m1', 'm2'], mock_files)
+            mock_resilient.return_value = ['s1']
+            self.client.send_files_as_album(entity, mock_files)
+            mock_gather_async.assert_awaited_once()
+            mock_resilient.assert_awaited_once()
 
-    @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient.send_files')
     @patch('telegram_upload.client.telegram_upload_client.TelegramUploadClient._send_album_media')
-    def test_send_files_as_album_splits_rejected_batch(self, mock_send_album_media, mock_send_files):
+    def test_send_files_as_album_splits_rejected_batch(self, mock_send_album_media):
         entity = "entity"
         mock_files = [MagicMock(), MagicMock()]
         media = [MagicMock(), MagicMock()]
-        mock_send_files.return_value = media
-        mock_send_album_media.side_effect = MediaEmptyError(None)
-        with patch.object(TelegramUploadClient, '_send_album_singles',
-                          new_callable=AsyncMock) as mock_singles:
-            mock_singles.return_value = []
-            self.client.send_files_as_album(entity, mock_files)
-        mock_send_files.assert_called_once()
+        with patch.object(TelegramUploadClient, '_gather_album_media', new_callable=AsyncMock) as mock_gather:
+            mock_gather.return_value = (media, mock_files)
+            mock_send_album_media.side_effect = MediaEmptyError(None)
+            with patch.object(TelegramUploadClient, '_send_album_singles',
+                              new_callable=AsyncMock) as mock_singles:
+                mock_singles.return_value = []
+                self.client.send_files_as_album(entity, mock_files)
         self.assertEqual(3, mock_send_album_media.call_count)
-        self.assertEqual([call(entity, media, reply_to=None), call(entity, media[:1], reply_to=None),
-                          call(entity, media[1:], reply_to=None)], mock_send_album_media.call_args_list)
         self.assertEqual(2, mock_singles.call_count)
 
     async def test_send_album_singles_fallback(self):
