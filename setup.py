@@ -8,12 +8,14 @@ import glob
 from itertools import chain
 from setuptools import setup, find_packages
 
-AUTHOR = "Nekmo"
+AUTHOR = "athulkrishna2015"
 EMAIL = 'contacto@nekmo.com'
-URL = 'https://github.com/Nekmo/telegram-upload/'
+URL = 'https://github.com/athulkrishna2015/telegram-upload/'
 
-PACKAGE_NAME = 'telegram-upload'
-PACKAGE_DOWNLOAD_URL = 'https://github.com/Nekmo/telegram-upload/archive/master.zip'
+# Renamed from 'telegram-upload' (owned upstream by Nekmo) so this fork can be
+# published to PyPI under its own name.
+PACKAGE_NAME = 'telegram-upload-manager'
+PACKAGE_DOWNLOAD_URL = 'https://github.com/athulkrishna2015/telegram-upload/archive/master.zip'
 MODULE = 'telegram_upload'
 REQUIREMENT_FILE = 'requirements.txt'
 STATUS_LEVEL = 5  # 1:Planning 2:Pre-Alpha 3:Alpha 4:Beta 5:Production/Stable 6:Mature 7:Inactive
