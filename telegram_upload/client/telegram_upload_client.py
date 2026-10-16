@@ -384,11 +384,6 @@ class TelegramUploadClient(TelegramClient):
             converted_path, cleanup = converted
             send_file = File(file.client, converted_path)
             send_file._caption = file.file_caption if hasattr(file, 'file_caption') else None
-            # Track the CONVERTED size: the progress bar was built for the
-            # source webp, but we upload the JPEG bytes.
-            converted_size = os.path.getsize(converted_path)
-        else:
-            converted_size = None
         try:
             # nosound_video only affects silent videos (prevents GIF mislabel);
             # Telethon omits it for non-videos (None), so mirror that.

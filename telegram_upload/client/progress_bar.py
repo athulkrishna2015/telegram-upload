@@ -81,6 +81,13 @@ class ProgressLine:
         click.echo(f'\r\033[2K{prefix}{suffix}', nl=False)
 
     def update(self, current, total=None):
+        # Telethon reports the real byte total of the stream it is uploading,
+        # which differs from our pre-computed estimate when the bytes are not
+        # the source file's (e.g. --convert-webp uploads a converted JPEG).
+        # Trust the runtime total so the percentage, byte readout and ETA stay
+        # correct instead of overflowing the bar.
+        if total:
+            self.length = total
         self.render(current, total)
 
     def render_finish(self):

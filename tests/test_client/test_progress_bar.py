@@ -43,3 +43,23 @@ class TestProgressLine(unittest.TestCase):
         rendered = mock_click.echo.call_args[0][0]
         self.assertIn('Uploading "a.mp4"', rendered)
         self.assertNotIn('[1/1]', rendered)
+
+    @patch("telegram_upload.client.progress_bar.click")
+    @patch("telegram_upload.client.progress_bar.shutil.get_terminal_size", return_value=(120, 30))
+    def test_runtime_total_replaces_estimated_length(self, mock_size: MagicMock, mock_click: MagicMock):
+        # Bar is built for the source webp, but the converted JPEG bytes are
+        # what actually get uploaded: the runtime total must win.
+        progress, line = get_progress_bar('Uploading', 'photo.webp', 100)
+        progress(50, 300)
+        self.assertEqual(line.length, 300)
+        rendered = mock_click.echo.call_args[0][0]
+        self.assertIn('50.0B/300.0B', rendered)
+        self.assertIn(' 17%', rendered)
+
+    @patch("telegram_upload.client.progress_bar.click")
+    @patch("telegram_upload.client.progress_bar.shutil.get_terminal_size", return_value=(120, 30))
+    def test_zero_total_keeps_estimated_length(self, mock_size: MagicMock, mock_click: MagicMock):
+        # A falsy runtime total (unknown size) must not wipe the estimate.
+        progress, line = get_progress_bar('Uploading', 'a.mp4', 100)
+        progress(50, 0)
+        self.assertEqual(line.length, 100)
