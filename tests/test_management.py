@@ -10,9 +10,30 @@ from ._compat import patch
 
 from click.testing import CliRunner
 
-from telegram_upload.management import upload, download, get_file_display_name
+from telegram_upload.management import upload, download, get_file_display_name, split_topic_destination
 
 directory = os.path.dirname(os.path.abspath(__file__))
+
+
+class TestSplitTopicDestination(unittest.TestCase):
+    def test_topic_link(self):
+        self.assertEqual(split_topic_destination('https://t.me/c/2140729823/11932'),
+                         ('-1002140729823', '11932'))
+
+    def test_topic_link_no_scheme(self):
+        self.assertEqual(split_topic_destination('t.me/c/2140729823/11932'),
+                         ('-1002140729823', '11932'))
+
+    def test_bare_chat_slash_topic(self):
+        self.assertEqual(split_topic_destination('2140729823/11932'), ('2140729823', '11932'))
+        self.assertEqual(split_topic_destination('-1002140729823/11932'), ('-1002140729823', '11932'))
+
+    def test_plain_chat_untouched(self):
+        self.assertEqual(split_topic_destination('-1002140729823'), ('-1002140729823', None))
+        self.assertEqual(split_topic_destination('my_group'), ('my_group', None))
+
+    def test_thread_query_param(self):
+        self.assertEqual(split_topic_destination('my_group?thread=11932'), ('my_group', '11932'))
 
 
 class TestGetFileDisplayName(unittest.TestCase):
@@ -64,6 +85,34 @@ class TestUpload(unittest.TestCase):
         result = runner.invoke(upload, ['--to', 'me', '--topic', 'MyTopic', test_file1, test_file2])
         self.assertEqual(result.exit_code, 0, result.output)
         mock_client.return_value.send_files.assert_called_once()
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_embedded_in_to(self, mock_client: MagicMock, _: MagicMock):
+        mock_client.return_value.max_caption_length = 200
+        mock_client.return_value.max_file_size = 1024 * 1024 * 1024
+
+        async def mock_check_topic(entity, topic_id):
+            return True
+        mock_client.return_value.check_topic_exists.side_effect = mock_check_topic
+
+        test_file = os.path.join(directory, 'test_management.py')
+        result = CliRunner().invoke(
+            upload, ['--to', 'https://t.me/c/2140729823/11932', test_file])
+        self.assertEqual(result.exit_code, 0, result.output)
+        mock_client.return_value.send_files.assert_called_once()
+        dest = mock_client.return_value.send_files.call_args[0][0]
+        self.assertEqual(dest, -1002140729823)
+        reply_to = mock_client.return_value.send_files.call_args[1].get('reply_to')
+        self.assertEqual(reply_to, 11932)
+
+    @patch('telegram_upload.management.default_config')
+    @patch('telegram_upload.management.TelegramManagerClient')
+    def test_upload_topic_embedded_and_flag_conflict(self, mock_client: MagicMock, _: MagicMock):
+        test_file = os.path.join(directory, 'test_management.py')
+        result = CliRunner().invoke(
+            upload, ['--to', 'https://t.me/c/2140729823/11932', '--topic', '5', test_file])
+        self.assertNotEqual(result.exit_code, 0)
 
     @patch('telegram_upload.management.default_config')
     @patch('telegram_upload.management.TelegramManagerClient')

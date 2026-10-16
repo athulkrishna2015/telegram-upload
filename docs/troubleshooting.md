@@ -45,6 +45,18 @@ $ telegram-upload --to my_group -t "/data/Library" --topic-depth 1 --dry-run
 
 A dry run performs read-only Telegram lookups, but it cannot guarantee the later create/send permission or predict every RPC failure. A warning about an unknown numeric topic ID means files may land in General if the Telegram API cannot route them to that topic.
 
+### Album upload fails with "Album batch rejected" / "Skipping an invalid album item"
+
+The `✓ [n/10]` ticks are per-file upload progress, not delivered gallery messages. The gallery is assembled afterwards with `SendMultiMediaRequest`, and Telegram can reject the whole batch (`MEDIA_EMPTY`) — for example when a batch mixes photos/documents, a silent video is mislabeled as a GIF, or a `webp` is sent as a document instead of a photo.
+
+The uploader now:
+
+* sends `webp`/image files as photos (`as_image`, explicit `image/webp` mime) so they group instead of becoming stickers;
+* sets `nosound_video` only for videos (silent clips are no longer sent as GIFs inside albums);
+* retries a rejected batch as halves, and as a last resort delivers leftover items one by one with `SendMediaRequest` (topic-safe) instead of silently dropping them — so a failed gallery degrades to single messages in the same topic rather than nothing.
+
+If albums still split apart, rerun with `--skip` (already-delivered items are detected) or drop `-a` to send files individually.
+
 ## Folder tree maps to the wrong topic layout
 
 Without `--topic-depth`, a directory provided to `-t` becomes one topic named after that directory; all files and subfolders are uploaded into it. Use `--topic-depth N` to make folders below the source into topics:

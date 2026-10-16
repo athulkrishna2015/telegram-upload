@@ -145,18 +145,55 @@ class TelegramUploadClient(TelegramClient):
         random_ids = [m.random_id for m in media]
         return self._get_response_message(random_ids, result, entity)
 
-    async def _send_album_media_resilient(self, entity, media, reply_to=None):
+    async def _send_album_media_resilient(self, entity, media, files=None, reply_to=None):
         try:
             return await self._send_album_media(entity, media, reply_to=reply_to)
         except MediaEmptyError:
             if len(media) <= 1:
+                if files:
+                    # Last resort: deliver the single item outside the album
+                    # (SendMediaRequest), so uploads are not silently dropped.
+                    return await self._send_album_singles(entity, media, files, reply_to)
                 click.echo('Skipping an invalid album item.', err=True)
                 return []
             midpoint = len(media) // 2
             click.echo('Album batch rejected, retrying as smaller albums.', err=True)
-            await self._send_album_media_resilient(entity, media[:midpoint], reply_to=reply_to)
-            await self._send_album_media_resilient(entity, media[midpoint:], reply_to=reply_to)
-            return []
+            first_files = files[:midpoint] if files else None
+            second_files = files[midpoint:] if files else None
+            first = await self._send_album_media_resilient(
+                entity, media[:midpoint], first_files, reply_to)
+            second = await self._send_album_media_resilient(
+                entity, media[midpoint:], second_files, reply_to)
+            return (first or []) + (second or [])
+
+    async def _send_album_singles(self, entity, media, files, reply_to=None):
+        """Send album items one by one via SendMediaRequest (topic-safe)."""
+        from telegram_upload.upload_files import File as UploadFile
+        sent = []
+        for item, file in zip(media, files or []):
+            try:
+                if not isinstance(file, UploadFile):
+                    raise MediaEmptyError(None)
+                thumb = file.get_thumbnail()
+                progress, bar = get_progress_bar(
+                    'Uploading', file.file_name, file.file_size)
+                try:
+                    message = await self._send_file_low_level(
+                        entity, file, thumb, progress, reply_to)
+                finally:
+                    try:
+                        bar.render_finish()
+                    except Exception:
+                        pass
+                    try:
+                        file.close()
+                    except Exception:
+                        pass
+                sent.append(message)
+            except (MediaEmptyError, RPCError) as e:
+                name = getattr(file, 'file_name', file)
+                click.echo(f'Skipping an invalid album item "{name}": {e}', err=True)
+        return sent
 
     def send_files_as_album(self, entity, files, delete_on_success=False, print_file_id=False,
                             forward=(), reply_to=None, skip=False, stats=None, upload_log=None):
@@ -170,7 +207,8 @@ class TelegramUploadClient(TelegramClient):
             media = self.send_files(entity, files_group, delete_on_success, print_file_id, forward, send_as_media=True,
                                     reply_to=reply_to, skip=skip, stats=stats, upload_log=upload_log)
             if media:
-                sent = async_to_sync(self._send_album_media_resilient(entity, media, reply_to=reply_to))
+                sent = async_to_sync(self._send_album_media_resilient(
+                    entity, media, list(files_group), reply_to=reply_to))
                 if upload_log is not None:
                     if sent:
                         uploaded = [file for file in files_group if isinstance(file, File)]
@@ -200,11 +238,27 @@ class TelegramUploadClient(TelegramClient):
                     message.media.document.size, file.file_size))
         return message
 
+    @staticmethod
+    def _photo_override(file) -> 'bool | None':
+        """Return True to send webp images as photos (not stickers)."""
+        if getattr(file, 'force_file', False):
+            return None
+        if get_file_mime(getattr(file, 'path', '') or '') == 'image':
+            return True
+        return None
+
+    @staticmethod
+    def _mime_override(file) -> 'str | None':
+        """Explicit mime so FileIO-like objects (no filename) keep their type."""
+        return {'.webp': 'image/webp'}.get(os.path.splitext(getattr(file, 'path', '') or '')[1].lower())
+
     async def _send_file_low_level(self, entity, file: File, thumb, progress, reply_to):
         entity = await self.get_input_entity(entity)
         fh, fm, _ = await self._file_to_media(
             file, thumb=thumb, force_document=file.force_file,
-            progress_callback=progress, attributes=file.file_attributes
+            progress_callback=progress, attributes=file.file_attributes,
+            as_image=self._photo_override(file),
+            mime_type=self._mime_override(file),
         )
         if isinstance(fm, types.InputMediaUploadedPhoto):
             r = await self(functions.messages.UploadMediaRequest(
@@ -230,8 +284,15 @@ class TelegramUploadClient(TelegramClient):
     async def _send_media(self, entity, file: File, progress):
         entity = await self.get_input_entity(entity)
         supports_streaming = False  # TODO
+        # nosound_video only affects silent videos (prevents GIF mislabel);
+        # Telethon omits it for non-videos (None), so mirror that.
+        is_video = get_file_mime(getattr(file, 'path', '') or '') == 'video'
         fh, fm, _ = await self._file_to_media(
-            file, supports_streaming=file, progress_callback=progress)
+            file, supports_streaming=file, progress_callback=progress,
+            force_document=file.force_file,
+            nosound_video=True if is_video else None,
+            as_image=self._photo_override(file),
+            mime_type=self._mime_override(file))
         if isinstance(fm, types.InputMediaUploadedPhoto):
             r = await self(functions.messages.UploadMediaRequest(
                 entity, media=fm

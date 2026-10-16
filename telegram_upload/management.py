@@ -2,6 +2,7 @@
 
 """Console script for telegram-upload."""
 import os
+import re
 import time
 
 import click
@@ -42,6 +43,29 @@ def ensure_int_entity(entity):
     if isinstance(entity, str) and entity.lstrip("-+").isdigit():
         return int(entity)
     return entity
+
+
+def split_topic_destination(value):
+    """Split a `--to` value like `2140729823/11932` or a t.me topic link.
+
+    Returns (chat, topic) where topic is None when no `/topic` suffix or
+    `?thread=`/`?topic=` query is present.
+    """
+    if not isinstance(value, str):
+        return value, None
+    text = value.strip()
+    match = re.search(r'[?&](?:thread|topic)=(\d+)', text)
+    query_topic = match.group(1) if match else None
+    base = text.split('?', 1)[0].rstrip('/')
+    link = re.match(r'^(?:https?://)?(?:t(?:elegram)?\.me|telegram\.dog)/c/(\d+)(?:/(\d+))?/?$', base)
+    if link:
+        return f'-100{link.group(1)}', link.group(2) or query_topic
+    bare = re.match(r'^(-?\d+)(?:/(\d+))?$', base)
+    if bare and ('/' in base or query_topic):
+        return bare.group(1), bare.group(2) or query_topic
+    if query_topic:
+        return base, query_topic
+    return value, None
 
 
 def get_file_display_name(message):
@@ -121,8 +145,9 @@ class MutuallyExclusiveOption(click.Option):
 
 @click.command()
 @click.argument('files', nargs=-1)
-@click.option('--to', multiple=True, help='Phone number, username, invite link or "me" (saved messages). '
-                                         'By default "me".')
+@click.option('--to', multiple=True, help='Phone number, username, invite link, chat id or "me". '
+                                         'May embed a forum topic: "chat/topic" or '
+                                         '"https://t.me/c/<id>/<topic>". By default "me".')
 
 @click.option('--config', default=None, help='Configuration file to use. By default "{}".'.format(CONFIG_FILE))
 @click.option('-d', '--delete-on-success', is_flag=True, help='Delete local file after successful upload.')
@@ -246,8 +271,23 @@ def upload(files, to, config, delete_on_success, print_file_id, force_file, forw
     destinations = []
     file_groups = []
 
-    # Get raw destinations (to/topic pairs)
+    # Get raw destinations (to/topic pairs). A --to value may embed the topic
+    # (`-100123/456`, `123/456`, or `https://t.me/c/123/456`).
     raw_destinations = []
+    expanded_to = []
+    embedded_topics = []
+    for t in to:
+        chat, embedded = split_topic_destination(t)
+        expanded_to.append(chat)
+        embedded_topics.append(embedded)
+    to = tuple(expanded_to)
+    if any(embedded_topics):
+        if topic:
+            raise click.UsageError('Use either --topic or a topic embedded in --to '
+                                   '(e.g. --to \"https://t.me/c/2140729823/11932\"), not both.')
+        topic = tuple(t for t in embedded_topics if t is not None)
+        if len(topic) != len(to):
+            raise click.UsageError('Either give every --to a topic (e.g. \"chat/topic\") or none.')
     if not topic:
         for t in to:
             raw_destinations.append((ensure_int_entity(t), None))
@@ -552,8 +592,21 @@ def download(from_, config, delete_on_success, proxy, split_files, interactive, 
         click.echo('[SPACE] Select dialog [ENTER] Next step')
         from_ = (async_to_sync(interactive_select_dialog(client)),)
 
-    # destinations pairing logic
+    # destinations pairing logic (supports topics embedded in --from)
     destinations = []
+    expanded_from = []
+    embedded_topics = []
+    for f in from_:
+        chat, embedded = split_topic_destination(f)
+        expanded_from.append(chat)
+        embedded_topics.append(embedded)
+    from_ = tuple(expanded_from)
+    if any(embedded_topics):
+        if topic:
+            raise click.UsageError('Use either --topic or a topic embedded in --from, not both.')
+        topic = tuple(t for t in embedded_topics if t is not None)
+        if len(topic) != len(from_):
+            raise click.UsageError('Either give every --from a topic or none.')
     if not topic:
         for f in from_:
             destinations.append((ensure_int_entity(f), None))

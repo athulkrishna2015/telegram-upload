@@ -17,7 +17,7 @@ Saved Messages unless `--to` selects another destination.
 
 | Option | Description |
 |---|---|
-| `--to TEXT` | Destination: phone, username, invite link, chat id, or `me` (default). Repeatable. |
+| `--to TEXT` | Destination: phone, username, invite link, chat id, or `me` (default). May embed a forum topic: `chat/topic` or `https://t.me/c/<id>/<topic>`. Repeatable. |
 | `--config TEXT` | Config file (default `~/.config/telegram-upload.json`). |
 | `-d, --delete-on-success` | Delete the local file after a successful upload. |
 | `--print-file-id` | Print the uploaded file's id after the upload. |
@@ -105,6 +105,16 @@ Use `--topic` (`-t`) to send files to a forum topic by its numeric ID or title. 
 $ telegram-upload --to my_group --topic 42 video.mkv
 $ telegram-upload --to my_group --topic "Physics Class" video.mkv
 ```
+
+Or embed the topic directly in `--to` (no separate `-t` needed). All of these target topic `11932` in the same group:
+
+```console
+$ telegram-upload --to "https://t.me/c/2140729823/11932" -r "/data/photos" --sort -a
+$ telegram-upload --to "-1002140729823/11932" -r "/data/photos" --sort -a
+$ telegram-upload --to "2140729823/11932" -r "/data/photos" --sort -a
+```
+
+Copy the link from Telegram (right-click the topic → Copy Link) and paste it as `--to`. The same forms work for `telegram-download --from`. Do not combine an embedded topic with `--topic`/`-t`.
 
 Passing a directory as the topic value uses that directory's basename as the topic name and uploads its contents recursively into that topic:
 

@@ -99,11 +99,25 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
         media = [MagicMock(), MagicMock()]
         mock_send_files.return_value = media
         mock_send_album_media.side_effect = MediaEmptyError(None)
-        self.client.send_files_as_album(entity, mock_files)
+        with patch.object(TelegramUploadClient, '_send_album_singles',
+                          new_callable=AsyncMock) as mock_singles:
+            mock_singles.return_value = []
+            self.client.send_files_as_album(entity, mock_files)
         mock_send_files.assert_called_once()
         self.assertEqual(3, mock_send_album_media.call_count)
         self.assertEqual([call(entity, media, reply_to=None), call(entity, media[:1], reply_to=None),
                           call(entity, media[1:], reply_to=None)], mock_send_album_media.call_args_list)
+        self.assertEqual(2, mock_singles.call_count)
+
+    async def test_send_album_singles_fallback(self):
+        from telegram_upload.upload_files import File
+        self.client.get_input_entity = AsyncMock()
+        self.client._send_file_low_level = AsyncMock(return_value=MagicMock())
+        mock_client = MagicMock(max_caption_length=200)
+        real_file = File(mock_client, self.upload_file_path)
+        sent = await self.client._send_album_singles('entity', [MagicMock()], [real_file], 5)
+        self.assertEqual(1, len(sent))
+        self.client._send_file_low_level.assert_awaited_once()
 
     @patch('telegram_upload.management.default_config')
     def test_missing_file(self, m1):
@@ -338,3 +352,33 @@ class TestTelegramUploadClient(IsolatedAsyncioTestCase):
             mock_to_media.return_value = (None, MagicMock(), True)
             media = await self.client._send_media('entity', file, mock_progress)
         self.assertEqual(os.path.basename(self.upload_file_path), media.message)
+
+    async def test_send_media_sends_images_as_photos(self):
+        mock_client = MagicMock(max_caption_length=200)
+        self.client.get_input_entity = AsyncMock()
+        mock_progress = MagicMock()
+        with patch.object(TelegramUploadClient, '_file_to_media', new_callable=AsyncMock) as mock_to_media:
+            mock_to_media.return_value = (None, MagicMock(), True)
+            for path, expected in (('/tmp/photo.webp', True), ('/tmp/movie.mp4', None)):
+                file = File(mock_client, self.upload_file_path)
+                file.path = path
+                with patch('telegram_upload.client.telegram_upload_client.get_file_mime',
+                           return_value='image' if expected else 'video'):
+                    await self.client._send_media('entity', file, mock_progress)
+                    kwargs = mock_to_media.call_args[1]
+                    self.assertEqual(kwargs.get('as_image'), expected)
+                    self.assertFalse(kwargs.get('force_document'))
+
+    def test_photo_override(self):
+        image = SimpleNamespace(force_file=False, path='/tmp/photo.webp')
+        video = SimpleNamespace(force_file=False, path='/tmp/movie.mp4')
+        forced = SimpleNamespace(force_file=True, path='/tmp/photo.webp')
+        self.assertTrue(TelegramUploadClient._photo_override(image))
+        self.assertIsNone(TelegramUploadClient._photo_override(video))
+        self.assertIsNone(TelegramUploadClient._photo_override(forced))
+
+    def test_mime_override(self):
+        webp = SimpleNamespace(path='/tmp/photo.webp')
+        jpg = SimpleNamespace(path='/tmp/photo.jpg')
+        self.assertEqual(TelegramUploadClient._mime_override(webp), 'image/webp')
+        self.assertIsNone(TelegramUploadClient._mime_override(jpg))
