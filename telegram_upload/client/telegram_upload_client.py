@@ -8,7 +8,8 @@ from typing import Iterable, Optional
 import click
 from telethon import TelegramClient, utils, helpers, custom
 from telethon.crypto import AES
-from telethon.errors import RPCError, FloodWaitError, InvalidBufferError, MediaEmptyError
+from telethon.errors import RPCError, FloodWaitError, InvalidBufferError, MediaEmptyError, \
+    WorkerBusyTooLongRetryError
 from telethon.tl import types, functions, TLRequest
 from telethon.utils import pack_bot_file_id
 
@@ -145,9 +146,22 @@ class TelegramUploadClient(TelegramClient):
         random_ids = [m.random_id for m in media]
         return self._get_response_message(random_ids, result, entity)
 
-    async def _send_album_media_resilient(self, entity, media, files=None, reply_to=None):
+    async def _send_album_media_resilient(self, entity, media, files=None, reply_to=None,
+                                          _busy_retries=3):
         try:
             return await self._send_album_media(entity, media, reply_to=reply_to)
+        except WorkerBusyTooLongRetryError as e:
+            # Telegram-side overload (not a bad batch): wait and retry the
+            # SAME batch instead of splitting it.
+            if _busy_retries > 0:
+                wait = 5 * (4 - _busy_retries)
+                click.echo(f'Telegram is busy, retrying album in {wait}s '
+                           f'({_busy_retries} left).', err=True)
+                await asyncio.sleep(wait)
+                return await self._send_album_media_resilient(
+                    entity, media, files, reply_to, _busy_retries - 1)
+            click.echo(f'Telegram is busy, giving up on this album batch: {e}', err=True)
+            return []
         except MediaEmptyError:
             if len(media) <= 1:
                 if files:
@@ -370,6 +384,11 @@ class TelegramUploadClient(TelegramClient):
             converted_path, cleanup = converted
             send_file = File(file.client, converted_path)
             send_file._caption = file.file_caption if hasattr(file, 'file_caption') else None
+            # Track the CONVERTED size: the progress bar was built for the
+            # source webp, but we upload the JPEG bytes.
+            converted_size = os.path.getsize(converted_path)
+        else:
+            converted_size = None
         try:
             # nosound_video only affects silent videos (prevents GIF mislabel);
             # Telethon omits it for non-videos (None), so mirror that.
